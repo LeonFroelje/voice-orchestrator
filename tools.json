@@ -1,0 +1,75 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "control_light",
+      "description": "Turn a light on or off, or change brightness.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "description": "The specific entity_id of the light (e.g. light.kitchen_main)"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["turn_on", "turn_off"],
+            "description": "The action to perform"
+          },
+          "brightness": {
+            "type": "integer",
+            "description": "Brightness level (0-255). Optional."
+          }
+        },
+        "required": ["entity_id", "action"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "set_temperature",
+      "description": "Set the target temperature for a climate device.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "description": "The entity_id of the thermostat (e.g. climate.living_room)"
+          },
+          "temperature": {
+            "type": "number",
+            "description": "The target temperature to set."
+          }
+        },
+        "required": ["entity_id", "temperature"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "play_music",
+      "description": "Searches for and plays music. Targets a specific speaker if provided, otherwise uses the active device.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The song, artist, or playlist name."
+          },
+          "device_name": {
+            "type": "string",
+            "description": "Optional: Specific speaker name (e.g. 'Kitchen')."
+          },
+          "category": {
+            "type": "string",
+            "enum": ["track", "playlist", "album"],
+            "description": "The type of content."
+          }
+        },
+        "required": ["query"] 
+      }
+    }
+  }
+]

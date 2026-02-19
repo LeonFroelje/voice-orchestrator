@@ -1,0 +1,32 @@
+[project]
+name = "my-python-app"
+version = "0.1.0"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "openai",
+    "requests",
+    "pydantic-settings",
+    "spotipy"
+]
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+voice-orchestrator = "main:start"
+
+[tool.setuptools]
+# Explicitly list all your python file names (without .py)
+py-modules = [
+    "main",
+    "ha_client",
+    "spotify_client",
+    "tts_client",
+    "tool_handler",
+    "config" 
+]
+[tool.setuptools.package-data]
+# Include json files for all modules
+"*" = ["*.json"]

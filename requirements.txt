@@ -1,0 +1,6 @@
+uvicorn
+fastapi
+openai
+requests
+pydantic-settings
+spotipy
