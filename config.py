@@ -50,11 +50,11 @@ class AppSettings(BaseSettings):
 
     # --- TTS Service ---
     tts_url: str = Field(
-        default="http://localhost:5000",
+        default="http://localhost:5000/v1/audio/speech",
         description="Endpoint for the Text-to-Speech service",
     )
     tts_voice: str = Field(
-        default="en_US-hfc_female-medium",
+        default="de_DE-thorsten-high",
         description="Voice ID to use for TTS generation",
     )
 
