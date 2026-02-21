@@ -128,10 +128,10 @@
         with lib;
 
         let
-          cfg = config.services.voice-assistant;
+          cfg = config.services.voiceOrchestrator;
         in
         {
-          options.services.voice-assistant = {
+          options.services.voiceOrchestrator = {
             enable = mkEnableOption "Voice Assistant Orchestrator";
 
             package = mkOption {
@@ -275,7 +275,7 @@
           };
 
           config = mkIf cfg.enable {
-            systemd.services.voice-assistant = {
+            systemd.services.voice-orchestrator = {
               description = "Voice Assistant Orchestrator Service";
               wantedBy = [ "multi-user.target" ];
               after = [ "network.target" ];
