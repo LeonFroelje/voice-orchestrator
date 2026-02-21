@@ -184,11 +184,6 @@
               };
 
               # --- Spotify ---
-              spotifyRedirectUrl = mkOption {
-                type = types.str;
-                default = "https://127.0.0.1";
-                description = "Redirect URL for Spotify web api";
-              };
 
               # --- LLM Service ---
               llmUrl = mkOption {
@@ -301,8 +296,6 @@
                 SPEAKER_ID_PROTOCOL = cfg.settings.speakerIdProtocol;
                 SPEAKER_ID_HOST = cfg.settings.speakerIdHost;
                 SPEAKER_ID_PORT = toString cfg.settings.speakerIdPort;
-
-                SPOTIFY_REDIRECT_URL = cfg.settings.spotifyRedirectUrl;
 
                 LLM_URL = cfg.settings.llmUrl;
                 LLM_MODEL = cfg.settings.llmModel;

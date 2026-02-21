@@ -24,16 +24,6 @@ class AppSettings(BaseSettings):
     speaker_id_port: int = Field(default=8001)
     # --- Spotify ---
 
-    spotify_client_id: str = Field(
-        default=None, description="Client ID for Spotify web api"
-    )
-    spotify_client_secret: str = Field(
-        default=None, description="Client secret for Spotify web api"
-    )
-    spotify_redirect_url: str = Field(
-        default="https://127.0.0.1", description="Redirect url for Spotify web api"
-    )
-
     # --- LLM Service ---
     llm_url: str = Field(
         default="http://localhost:11434/v1",
