@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 import httpx
 import wave
 import io
-from spotify_client import SpotifyClient
 import logging
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
@@ -56,11 +55,6 @@ logger = logging.getLogger("Orchestrator")
 app = FastAPI(lifespan=lifespan)
 ha_client = HomeAssistantClient(
     base_url=settings.ha_url, token=settings.ha_token.get_secret_value()
-)
-spotify_client = SpotifyClient(
-    settings.spotify_client_id,
-    settings.spotify_client_secret,
-    settings.spotify_redirect_url,
 )
 
 service_context = {"ha": ha_client}
