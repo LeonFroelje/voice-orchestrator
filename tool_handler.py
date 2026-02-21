@@ -20,9 +20,9 @@ def control_light(context: Any, **kwargs):
     success = context["ha"].call_service("homeassistant", action, kwargs)
 
     if success:
-        return f"Okay, {action.replace('_', ' ')} executed for {entity_id}."
+        return f"Okay, Miau miau."
     else:
-        return f"I'm sorry, I failed to control {entity_id}."
+        return "Tut mir leid, ich konnte die Aktion leider nicht ausführen."
 
 
 def set_temperature(context: Any, **kwargs):
@@ -33,9 +33,9 @@ def set_temperature(context: Any, **kwargs):
     success = context["ha"].call_service("climate", "set_temperature", kwargs)
 
     if success:
-        return f"The thermostat is set to {temp} degrees."
+        return f"Temperatur auf {temp} Grad gesetzt."
     else:
-        return "I couldn't set the temperature."
+        return f"Konnte Temperatur nicht auf {temp} grad setzen."
 
 
 def play_spotify_music(context: dict, **kwargs):
@@ -54,18 +54,78 @@ def play_spotify_music(context: dict, **kwargs):
     return message
 
 
+def activate_scene(context: Any, **kwargs):
+    """
+    Tool: Activate a Home Assistant scene.
+    """
+    entity_id = kwargs.get("entity_id")
+
+    if not entity_id:
+        return "Error: No entity_id provided for the scene."
+
+    # In Home Assistant, you turn on a scene to activate it
+    success = context["ha"].call_service("scene", "turn_on", {"entity_id": entity_id})
+
+    if success:
+        return f"Okay."
+    else:
+        return "Tut mir leid, konnte Szene nicht aktivieren"
+
+
+def play_music(context, **kwargs):
+    query = kwargs.get("query")
+    media_type = kwargs.get("media_type", "track")
+    room = kwargs.get("room")
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    payload = {
+        "entity_id": entity_id,
+        "media_id": query,
+        "media_type": media_type,
+        "enqueue": "play",  # Options: play, replace, next, add
+    }
+    try:
+        # Use your HA client to call the service.
+        # Domain is "music_assistant", Service is "play_media"
+        context["ha"].call_service("music_assistant", "play_media", payload)
+
+        # Return a natural confirmation for the LLM to process
+        return ""
+    except Exception as e:
+        return f"Fehler beim Starten der Musik: {e}"
+
+
+def stop_music(context, **kwargs):
+    room = kwargs.get("room", "wohnzimmer")
+
+    # Format the entity_id exactly like we did for play_music
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+
+    payload = {"entity_id": entity_id}
+
+    try:
+        # We use the standard media_player domain to pause/stop
+        context["ha"].call_service("media_player", "media_pause", payload)
+
+        # Return a context string so the LLM knows it succeeded
+        return f"Musik im {room} wurde gestoppt."
+
+    except Exception as e:
+        return f"Fehler beim Stoppen der Musik: {e}"
+
+
+# Update your mapping to include the new tool
 TOOL_MAPPING = {
     "control_light": control_light,
     "set_temperature": set_temperature,
-    "play_music": play_spotify_music,  # Add to registry
+    "play_music": play_music,
+    "activate_scene": activate_scene,
+    "stop_music": stop_music,
 }
 
 
-def execute_tool(tool_name: str, tool_args: dict, context: Any = None) -> str:
-    """
-    Universal function to execute any tool found in the mapping.
-    """
-    if tool_name not in TOOL_MAPPING:
+def execute_tool(tool_name, tool_args, context):
+    ha_client = context.get("ha")
+    if not tool_name in TOOL_MAPPING:
         return f"Error: Tool '{tool_name}' is defined in JSON but not implemented in Python."
 
     try:
@@ -73,4 +133,4 @@ def execute_tool(tool_name: str, tool_args: dict, context: Any = None) -> str:
         return func(context, **tool_args)
     except Exception as e:
         logger.error(f"Tool execution failed: {e}")
-        return f"I tried to execute {tool_name}, but an error occurred."
+        # return f"I tried to execute {tool_name}, but an error occurred."

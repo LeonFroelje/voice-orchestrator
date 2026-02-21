@@ -36,6 +36,8 @@
         requests
         pydantic-settings
         spotipy
+        python-multipart
+        httpx
         setuptools
         setuptools-scm
       ];

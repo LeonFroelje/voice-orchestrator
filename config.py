@@ -19,6 +19,9 @@ class AppSettings(BaseSettings):
         default=None,
         description="Path to a file containing the HA token (useful for Docker secrets)",
     )
+    speaker_id_protocol: str = Field(default="http")
+    speaker_id_host: str = Field(default="localhost")
+    speaker_id_port: int = Field(default=8001)
     # --- Spotify ---
 
     spotify_client_id: str = Field(
@@ -46,6 +49,24 @@ class AppSettings(BaseSettings):
     )
     llm_api_key: SecretStr = Field(
         default="nop", description="API Key for LLM if auth is required"
+    )
+    # --- Transcription service ---
+    whisper_host: str = Field(
+        default="localhost", description="Hostname or IP of the Whisper-Live server"
+    )
+    whisper_protocol: str = Field(
+        default="http",
+        description="The protocol to use for transcription (http or https)",
+    )
+    whisper_port: int = Field(
+        default=9090, description="Port of the Whisper-Live server"
+    )
+    whisper_model: str = Field(
+        default="large-v3",
+        description="Whisper model size (tiny, base, small, medium, large-v2, etc.)",
+    )
+    language: str = Field(
+        default="de", description="Language code for STT (e.g., 'en', 'de', 'es')"
     )
 
     # --- TTS Service ---

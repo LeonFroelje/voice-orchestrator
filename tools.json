@@ -50,25 +50,93 @@
     "type": "function",
     "function": {
       "name": "play_music",
-      "description": "Searches for and plays music. Targets a specific speaker if provided, otherwise uses the active device.",
+      "description": "Searches for and plays music using Music Assistant. Targets a specific room or speaker.",
       "parameters": {
         "type": "object",
         "properties": {
           "query": {
             "type": "string",
-            "description": "The song, artist, or playlist name."
+            "description": "The song, artist, album, or playlist name."
           },
-          "device_name": {
+          "media_type": {
             "type": "string",
-            "description": "Optional: Specific speaker name (e.g. 'Kitchen')."
-          },
-          "category": {
-            "type": "string",
-            "enum": ["track", "playlist", "album"],
+            "enum": ["track", "playlist", "album", "artist", "radio"],
             "description": "The type of content."
+          },
+          "room": {
+            "type": "string",
+            "description": "The room where the music should play (e.g., 'Wohnzimmer'). If the user doesn't specify, use the room they are currently in."
           }
         },
-        "required": ["query"] 
+        "required": ["query", "media_type", "room"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "stop_music",
+      "description": "Stops or pauses music playback in a specific room or speaker.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "room": {
+            "type": "string",
+            "description": "The room where the music should be stopped (e.g., 'Wohnzimmer'). If the user doesn't specify, use the room they are currently in."
+          }
+        },
+        "required": ["room"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "activate_scene",
+      "description": "Activates a predefined smart home scene (e.g., for cozy lighting, sleeping, waking up, or leaving home). A scene can also be triggered by e.g. Ich gehe schlafen for the scene.schlafen",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "description": "The exact entity_id of the scene to activate."
+          }
+        },
+        "required": ["entity_id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "manage_volume",
+      "description": "Adjust the local speaker volume of the voice assistant.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "integer",
+            "description": "Target volume level (0-100)."
+          }
+        },
+        "required": ["level"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "set_timer",
+      "description": "Start a countdown timer on the local device.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "duration_seconds": {
+            "type": "integer",
+            "description": "The duration of the timer in seconds. Convert minutes or hours to seconds."
+          }
+        },
+        "required": ["duration_seconds"]
       }
     }
   }
