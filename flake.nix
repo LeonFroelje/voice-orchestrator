@@ -148,27 +148,49 @@
               example = "/run/secrets/voice-assistant.env";
               description = ''
                 Path to an environment file containing secrets.
-                This file should contain the following KEY=VALUE pairs:
+                To prevent leaks into the Nix store, this file should contain:
                 - HA_TOKEN
+                - HA_TOKEN_FILE (optional)
                 - SPOTIFY_CLIENT_ID
                 - SPOTIFY_CLIENT_SECRET
-                - LLM_API_KEY (if auth is required)
+                - LLM_API_KEY
               '';
             };
 
             settings = {
+              # --- Home Assistant ---
               haUrl = mkOption {
                 type = types.str;
                 default = "http://homeassistant.local:8123";
                 description = "The URL of your Home Assistant instance";
               };
 
+              speakerIdProtocol = mkOption {
+                type = types.str;
+                default = "http";
+                description = "Protocol for the Speaker ID service";
+              };
+
+              speakerIdHost = mkOption {
+                type = types.str;
+                default = "localhost";
+                description = "Host for the Speaker ID service";
+              };
+
+              speakerIdPort = mkOption {
+                type = types.int;
+                default = 8001;
+                description = "Port for the Speaker ID service";
+              };
+
+              # --- Spotify ---
               spotifyRedirectUrl = mkOption {
                 type = types.str;
                 default = "https://127.0.0.1";
                 description = "Redirect URL for Spotify web api";
               };
 
+              # --- LLM Service ---
               llmUrl = mkOption {
                 type = types.str;
                 default = "http://localhost:11434/v1";
@@ -177,26 +199,77 @@
 
               llmModel = mkOption {
                 type = types.str;
-                default = "llama3.2:3b";
+                default = "qwen3:1.7b";
                 description = "The specific model tag to use";
               };
 
-              llmAuthRequired = mkOption {
-                type = types.bool;
-                default = false;
-                description = "If True, the LLM client will send the API Key";
+              # llmAuthRequired = mkOption {
+              #   type = types.bool;
+              #   default = false;
+              #   description = "If True, the LLM client will send the API Key";
+              # };
+
+              # --- Transcription Service (Whisper) ---
+              whisperHost = mkOption {
+                type = types.str;
+                default = "localhost";
+                description = "Hostname or IP of the Whisper-Live server";
               };
 
+              whisperProtocol = mkOption {
+                type = types.str;
+                default = "http";
+                description = "The protocol to use for transcription (http or https)";
+              };
+
+              whisperPort = mkOption {
+                type = types.int;
+                default = 9090;
+                description = "Port of the Whisper-Live server";
+              };
+
+              whisperModel = mkOption {
+                type = types.str;
+                default = "large-v3";
+                description = "Whisper model size";
+              };
+
+              language = mkOption {
+                type = types.str;
+                default = "de";
+                description = "Language code for STT";
+              };
+
+              # --- TTS Service ---
               ttsUrl = mkOption {
                 type = types.str;
-                default = "http://localhost:5000";
+                default = "http://localhost:5000/v1/audio/speech";
                 description = "Endpoint for the Text-to-Speech service";
               };
 
               ttsVoice = mkOption {
                 type = types.str;
-                default = "en_US-hfc_female-medium";
+                default = "de_DE-thorsten-high";
                 description = "Voice ID to use for TTS generation";
+              };
+
+              # --- System ---
+              host = mkOption {
+                type = types.str;
+                default = "0.0.0.0";
+                description = "Server Host bind address";
+              };
+
+              port = mkOption {
+                type = types.int;
+                default = 8000;
+                description = "Server Port";
+              };
+
+              logLevel = mkOption {
+                type = types.str;
+                default = "INFO";
+                description = "Logging Level (DEBUG, INFO, etc.)";
               };
             };
           };
@@ -225,19 +298,34 @@
               # Pydantic is case-insensitive, but Uppercase is standard
               environment = {
                 HA_URL = cfg.settings.haUrl;
+                SPEAKER_ID_PROTOCOL = cfg.settings.speakerIdProtocol;
+                SPEAKER_ID_HOST = cfg.settings.speakerIdHost;
+                SPEAKER_ID_PORT = toString cfg.settings.speakerIdPort;
+
                 SPOTIFY_REDIRECT_URL = cfg.settings.spotifyRedirectUrl;
+
                 LLM_URL = cfg.settings.llmUrl;
                 LLM_MODEL = cfg.settings.llmModel;
-                LLM_AUTH_REQUIRED = if cfg.settings.llmAuthRequired then "true" else "false";
+                # LLM_AUTH_REQUIRED = if cfg.settings.llmAuthRequired then "true" else "false";
+
+                WHISPER_HOST = cfg.settings.whisperHost;
+                WHISPER_PROTOCOL = cfg.settings.whisperProtocol;
+                WHISPER_PORT = toString cfg.settings.whisperPort;
+                WHISPER_MODEL = cfg.settings.whisperModel;
+                LANGUAGE = cfg.settings.language;
+
                 TTS_URL = cfg.settings.ttsUrl;
                 TTS_VOICE = cfg.settings.ttsVoice;
+
+                HOST = cfg.settings.host;
+                PORT = toString cfg.settings.port;
+                LOG_LEVEL = cfg.settings.logLevel;
 
                 # Python unbuffered output for better logging in journalctl
                 PYTHONUNBUFFERED = "1";
               };
             };
           };
-
         };
     };
 
