@@ -12,6 +12,29 @@ class HomeAssistantClient:
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
+    def get_state(self, entity_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetches the complete state object (state and attributes) for a given entity ID.
+        """
+        url = f"{self.base_url}/api/states/{entity_id}"
+        
+        try:
+            response = requests.get(url, headers=self.headers, timeout=5)
+            
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 404:
+                logger.warning(f"Entity '{entity_id}' not found in Home Assistant.")
+                return None
+            else:
+                logger.error(
+                    f"Failed to fetch state for {entity_id}. Status: {response.status_code}, Response: {response.text}"
+                )
+                return None
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error while fetching state for {entity_id}: {e}")
+            return None
 
     def call_service(
         self, domain: str, service: str, service_data: Dict[str, Any]
