@@ -112,16 +112,112 @@ def stop_music(context, **kwargs):
     except Exception as e:
         return f"Fehler beim Stoppen der Musik: {e}"
 
+def next_track(context, **kwargs):
+    room = kwargs.get("room", "wohnzimmer")
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    payload = {"entity_id": entity_id}
 
-# Update your mapping to include the new tool
+    try:
+        # Standard media_player service to skip track
+        context["ha"].call_service("media_player", "media_next_track", payload)
+        return f"Nächstes Lied im {room} wird gespielt."
+    except Exception as e:
+        return f"Fehler beim Überspringen des Liedes: {e}"
+
+
+def previous_track(context, **kwargs):
+    room = kwargs.get("room", "wohnzimmer")
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    payload = {"entity_id": entity_id}
+
+    try:
+        # Standard media_player service to go back
+        context["ha"].call_service("media_player", "media_previous_track", payload)
+        return f"Vorheriges Lied im {room} wird gespielt."
+    except Exception as e:
+        return f"Fehler beim Zurückspringen: {e}"
+
+
+def queue_music(context, **kwargs):
+    query = kwargs.get("query")
+    media_type = kwargs.get("media_type", "track")
+    room = kwargs.get("room", "wohnzimmer")
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    
+    payload = {
+        "entity_id": entity_id,
+        "media_id": query,
+        "media_type": media_type,
+        "enqueue": "add",  # "add" appends to the queue, "next" plays right after current
+    }
+    try:
+        context["ha"].call_service("music_assistant", "play_media", payload)
+        return "" # Empty return for natural confirmation handling
+    except Exception as e:
+        return f"Fehler beim Einreihen der Musik: {e}"
+
+def resume_music(context, **kwargs):
+    room = kwargs.get("room", "wohnzimmer")
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    payload = {"entity_id": entity_id}
+
+    try:
+        # We use the standard media_player domain to play/resume
+        context["ha"].call_service("media_player", "media_play", payload)
+        return f"Musik im {room} wird fortgesetzt."
+    except Exception as e:
+        return f"Fehler beim Fortsetzen der Musik: {e}"
+
+
+def whats_playing(context, **kwargs):
+    import requests
+    room = kwargs.get("room", "wohnzimmer")
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    
+    ha_client = context["ha"]
+    url = f"{ha_client.base_url}/api/states/{entity_id}"
+    
+    try:
+        # Fetch the current state of the media player directly from HA API
+        response = requests.get(url, headers=ha_client.headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            state = data.get("state")
+            attributes = data.get("attributes", {})
+            
+            # Handle cases where nothing is playing
+            if state in ["idle", "off", "standby", "unknown", "unavailable"]:
+                return f"Im {room} wird gerade nichts abgespielt."
+            
+            # Extract track info
+            title = attributes.get("media_title", "einem unbekannten Titel")
+            artist = attributes.get("media_artist", "einem unbekannten Künstler")
+            
+            # Provide context back to the LLM so it can formulate a nice natural response
+            if state == "paused":
+                return f"Die Musik ist im {room} pausiert. Das aktuelle Lied ist '{title}' von {artist}."
+            else:
+                return f"Im {room} läuft gerade '{title}' von {artist}."
+        else:
+            return f"Konnte den Status im {room} nicht abrufen (HTTP {response.status_code})."
+            
+    except Exception as e:
+        return f"Fehler bei der Statusabfrage: {e}"
+
+
 TOOL_MAPPING = {
     "control_light": control_light,
     "set_temperature": set_temperature,
     "play_music": play_music,
     "activate_scene": activate_scene,
     "stop_music": stop_music,
+    "next_track": next_track,          
+    "previous_track": previous_track, 
+    "queue_music": queue_music,      
+    "resume_music": resume_music,     
+    "whats_playing": whats_playing,   
 }
-
 
 def execute_tool(tool_name, tool_args, context):
     ha_client = context.get("ha")

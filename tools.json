@@ -139,5 +139,99 @@
         "required": ["duration_seconds"]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "next_track",
+      "description": "Skips to the next song in a specific room or speaker.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "room": {
+            "type": "string",
+            "description": "The room where the music should be skipped (e.g., 'Wohnzimmer'). If the user doesn't specify, use the room they are currently in."
+          }
+        },
+        "required": ["room"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "previous_track",
+      "description": "Goes back to the previous song in a specific room or speaker.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "room": {
+            "type": "string",
+            "description": "The room where the music should go back (e.g., 'Wohnzimmer'). If the user doesn't specify, use the room they are currently in."
+          }
+        },
+        "required": ["room"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "queue_music",
+      "description": "Searches for and adds music to the end of the queue using Music Assistant. Targets a specific room or speaker.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The song, artist, album, or playlist name to add to the queue."
+          },
+          "media_type": {
+            "type": "string",
+            "enum": ["track", "playlist", "album", "artist", "radio"],
+            "description": "The type of content."
+          },
+          "room": {
+            "type": "string",
+            "description": "The room where the music should be queued (e.g., 'Wohnzimmer'). If the user doesn't specify, use the room they are currently in."
+          }
+        },
+        "required": ["query", "media_type", "room"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "resume_music",
+      "description": "Resumes or unpauses music playback in a specific room or speaker.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "room": {
+            "type": "string",
+            "description": "The room where the music should be resumed (e.g., 'Wohnzimmer'). If the user doesn't specify, use the room they are currently in."
+          }
+        },
+        "required": ["room"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "whats_playing",
+      "description": "Checks what song, artist, or media is currently playing in a specific room.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "room": {
+            "type": "string",
+            "description": "The room to check for playing music (e.g., 'Wohnzimmer'). If the user doesn't specify, use the room they are currently in."
+          }
+        },
+        "required": ["room"]
+      }
+    }
   }
 ]

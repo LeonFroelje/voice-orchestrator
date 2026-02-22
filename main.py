@@ -70,6 +70,64 @@ ha_headers = {
     "Content-Type": "application/json",
 }
 
+active_sessions: Dict[str, float] = {}
+
+# --- New Endpoints for Volume Ducking ---
+
+@app.post("/event/wakeword")
+async def handle_wakeword(room: str = Form(...)):
+    """
+    Called when a satellite detects a wakeword. 
+    Lowers volume of the media_player in that room.
+    """
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    logger.info(f"Wakeword detected in {room}. Checking {entity_id} for ducking.")
+
+    try:
+        # Get current state from HA
+        state = ha_client.get_state(entity_id)
+        if state and state.get("state") == "playing":
+            current_volume = state.get("attributes", {}).get("volume_level", 0.5)
+            
+            # Store the original volume
+            active_sessions[room] = current_volume
+            
+            # Lower volume (ducking) to 20% of current or a fixed low value
+            duck_volume = max(0.1, current_volume * 0.5)
+            ha_client.call_service("media_player", "volume_set", {
+                "entity_id": entity_id,
+                "volume_level": duck_volume
+            })
+            return {"status": "ducked", "previous_volume": current_volume}
+            
+    except Exception as e:
+        logger.error(f"Failed to duck volume for {room}: {e}")
+    
+    return {"status": "no_action"}
+
+
+@app.post("/event/finished")
+async def handle_finished(room: str = Form(...)):
+    """
+    Called when the assistant is done speaking or listening.
+    Restores the original volume.
+    """
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    
+    if room in active_sessions:
+        original_volume = active_sessions.pop(room)
+        try:
+            ha_client.call_service("media_player", "volume_set", {
+                "entity_id": entity_id,
+                "volume_level": original_volume
+            })
+            logger.info(f"Restored volume for {room} to {original_volume}")
+            return {"status": "restored"}
+        except Exception as e:
+            logger.error(f"Failed to restore volume for {room}: {e}")
+
+    return {"status": "no_session"}
+
 
 @app.get("/health")
 def health_check():
