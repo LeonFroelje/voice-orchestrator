@@ -1,4 +1,5 @@
 import logging
+import datetime
 import json
 from typing import Dict, Any, Callable
 # Import your HA service call function here or pass it in
@@ -201,41 +202,112 @@ def sanitize_room(room):
 
 
 def whats_playing(context, **kwargs):
-    import requests
-
     room = kwargs.get("room", "wohnzimmer")
-    entity_id = f"media_player.{sanitize_room(room)}"
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
 
-    ha_client = context["ha"]
-    url = f"{ha_client.base_url}/api/states/{entity_id}"
+    state_data = context["ha"].get_state(entity_id)
+
+    if not state_data:
+        return f"Konnte den Player-Status im {room} nicht abrufen."
+
+    state = state_data.get("state")
+    attributes = state_data.get("attributes", {})
+
+    if state in ["idle", "off", "standby", "unknown", "unavailable"]:
+        return f"Im {room} wird gerade nichts abgespielt."
+
+    title = attributes.get("media_title", "einem unbekannten Titel")
+    artist = attributes.get("media_artist", "einem unbekannten Künstler")
+
+    if state == "paused":
+        return f"Die Musik ist im {room} pausiert. Das aktuelle Lied ist '{title}' von {artist}."
+    else:
+        return f"Im {room} läuft gerade '{title}' von {artist}."
+
+
+def set_timer(context, **kwargs):
+    duration_seconds = kwargs.get("duration_seconds")
+    room = kwargs.get("room", "wohnzimmer")
+
+    # Map the room to a specific HA timer entity (e.g., timer.wohnzimmer)
+    entity_id = f"timer.{sanitize_room(room)}"
+
+    # Convert seconds to a formatted string (HH:MM:SS) for HA compatibility
+    duration_str = str(datetime.timedelta(seconds=duration_seconds))
+
+    payload = {"entity_id": entity_id, "duration": duration_str}
 
     try:
-        # Fetch the current state of the media player directly from HA API
-        response = requests.get(url, headers=ha_client.headers)
-
-        if response.status_code == 200:
-            data = response.json()
-            state = data.get("state")
-            attributes = data.get("attributes", {})
-
-            # Handle cases where nothing is playing
-            if state in ["idle", "off", "standby", "unknown", "unavailable"]:
-                return f"Im {room} wird gerade nichts abgespielt."
-
-            # Extract track info
-            title = attributes.get("media_title", "einem unbekannten Titel")
-            artist = attributes.get("media_artist", "einem unbekannten Künstler")
-
-            # Provide context back to the LLM so it can formulate a nice natural response
-            if state == "paused":
-                return f"Die Musik ist im {room} pausiert. Das aktuelle Lied ist '{title}' von {artist}."
-            else:
-                return f"Im {room} läuft gerade '{title}' von {artist}."
-        else:
-            return f"Konnte den Status im {room} nicht abrufen (HTTP {response.status_code})."
-
+        # Start the timer in Home Assistant
+        context["ha"].call_service("timer", "start", payload)
+        return f"Timer für {duration_seconds} Sekunden im {room} gestartet."
     except Exception as e:
-        return f"Fehler bei der Statusabfrage: {e}"
+        return f"Fehler beim Starten des Timers: {e}"
+
+
+def cancel_timer(context, **kwargs):
+    room = kwargs.get("room", "wohnzimmer")
+    entity_id = f"timer.{room.lower().replace(' ', '_')}"
+
+    # Use your client's call_service and check the boolean return
+    success = context["ha"].call_service("timer", "cancel", {"entity_id": entity_id})
+
+    if success:
+        return f"Timer im {room} wurde abgebrochen."
+    else:
+        return (
+            f"Fehler: Konnte den Timer im {room} nicht abbrechen. Überprüfe die Logs."
+        )
+
+
+def timer_remaining(context, **kwargs):
+    room = kwargs.get("room", "wohnzimmer")
+    entity_id = f"timer.{room.lower().replace(' ', '_')}"
+
+    # Use your client's built-in get_state method
+    state_data = context["ha"].get_state(entity_id)
+
+    if not state_data:
+        return f"Konnte den Timer-Status im {room} nicht abrufen. Möglicherweise existiert er nicht."
+
+    state = state_data.get("state")
+
+    if state == "idle":
+        return f"Es läuft aktuell kein Timer im {room}."
+
+    elif state == "active":
+        attributes = state_data.get("attributes", {})
+        finishes_at_str = attributes.get("finishes_at")
+
+        if finishes_at_str:
+            # Parse HA's ISO string
+            finishes_at = datetime.datetime.fromisoformat(
+                finishes_at_str.replace("Z", "+00:00")
+            )
+            now = datetime.datetime.now(datetime.timezone.utc)
+
+            remaining = finishes_at - now
+            total_seconds = int(remaining.total_seconds())
+
+            if total_seconds <= 0:
+                return f"Der Timer im {room} ist gerade abgelaufen."
+
+            minutes, seconds = divmod(total_seconds, 60)
+            hours, minutes = divmod(minutes, 60)
+
+            if hours > 0:
+                return f"Der Timer läuft noch {hours} Stunden, {minutes} Minuten und {seconds} Sekunden."
+            elif minutes > 0:
+                return f"Der Timer läuft noch {minutes} Minuten und {seconds} Sekunden."
+            else:
+                return f"Der Timer läuft noch {seconds} Sekunden."
+        else:
+            return f"Der Timer im {room} ist aktiv, aber ich kann die verbleibende Zeit nicht berechnen."
+
+    elif state == "paused":
+        return f"Der Timer im {room} ist derzeit pausiert."
+    else:
+        return f"Der Status des Timers im {room} ist: {state}."
 
 
 TOOL_MAPPING = {
@@ -250,6 +322,7 @@ TOOL_MAPPING = {
     "resume_music": resume_music,
     "whats_playing": whats_playing,
     "clear_queue": clear_queue,
+    "set_timer": set_timer,
 }
 
 
