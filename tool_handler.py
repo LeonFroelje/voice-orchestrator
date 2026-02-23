@@ -264,7 +264,7 @@ def set_timer(context, **kwargs):
     td = datetime.timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
     # str(td) formats the timedelta exactly how HA likes it: "HH:MM:SS" or "H:MM:SS"
-    payload = {"entity_id": entity_id, "duration": str(td)}
+    payload = {"entity_id": entity_id, "duration": td.strftime("%H:%M:S")}
 
     # Call your HA client
     success = context["ha"].call_service("timer", "start", payload)
