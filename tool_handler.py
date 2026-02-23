@@ -258,13 +258,13 @@ def set_timer(context, **kwargs):
     if hours == 0 and minutes == 0 and seconds == 0:
         return "Fehler: Es wurde keine Zeitdauer für den Timer angegeben."
 
-    entity_id = f"timer.{room.lower().replace(' ', '_')}"
+    entity_id = f"timer.{sanitize_room(room)}"
 
     # Python handles the time math perfectly!
     td = datetime.timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
     # str(td) formats the timedelta exactly how HA likes it: "HH:MM:SS" or "H:MM:SS"
-    payload = {"entity_id": entity_id, "duration": td.strftime("%H:%M:S")}
+    payload = {"entity_id": entity_id, "duration": td.total_seconds()}
 
     # Call your HA client
     success = context["ha"].call_service("timer", "start", payload)
