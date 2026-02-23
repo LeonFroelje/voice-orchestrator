@@ -58,7 +58,7 @@ def clear_queue(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
 
     # Format the entity_id exactly like the other media_player functions
-    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    entity_id = f"media_player.{sanitize_room(room)}"
     payload = {"entity_id": entity_id}
 
     try:
@@ -94,7 +94,7 @@ def play_music(context, **kwargs):
     query = kwargs.get("query")
     media_type = kwargs.get("media_type", "track")
     room = kwargs.get("room")
-    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    entity_id = f"media_player.{sanitize_room(room)}"
     payload = {
         "entity_id": entity_id,
         "media_id": query,
@@ -116,7 +116,7 @@ def stop_music(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
 
     # Format the entity_id exactly like we did for play_music
-    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    entity_id = f"media_player.{sanitize_room(room)}"
 
     payload = {"entity_id": entity_id}
 
@@ -133,7 +133,7 @@ def stop_music(context, **kwargs):
 
 def next_track(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
-    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    entity_id = f"media_player.{sanitize_room(room)}"
     payload = {"entity_id": entity_id}
 
     try:
@@ -146,7 +146,7 @@ def next_track(context, **kwargs):
 
 def previous_track(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
-    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    entity_id = f"media_player.{sanitize_room(room)}"
     payload = {"entity_id": entity_id}
 
     try:
@@ -161,7 +161,7 @@ def queue_music(context, **kwargs):
     query = kwargs.get("query")
     media_type = kwargs.get("media_type", "track")
     room = kwargs.get("room", "wohnzimmer")
-    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    entity_id = f"media_player.{sanitize_room(room)}"
 
     payload = {
         "entity_id": entity_id,
@@ -178,7 +178,7 @@ def queue_music(context, **kwargs):
 
 def resume_music(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
-    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    entity_id = f"media_player.{sanitize_room(room)}"
     payload = {"entity_id": entity_id}
 
     try:
@@ -189,11 +189,21 @@ def resume_music(context, **kwargs):
         return f"Fehler beim Fortsetzen der Musik: {e}"
 
 
+def sanitize_room(room):
+    (
+        room.lower()
+        .replace(" ", "_")
+        .replace("ü", "ue")
+        .replace("ö", "oe")
+        .replace("ä", "ae")
+    )
+
+
 def whats_playing(context, **kwargs):
     import requests
 
     room = kwargs.get("room", "wohnzimmer")
-    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    entity_id = f"media_player.{sanitize_room(room)}"
 
     ha_client = context["ha"]
     url = f"{ha_client.base_url}/api/states/{entity_id}"
