@@ -26,20 +26,18 @@
       pkgs = nixpkgs.legacyPackages.${system};
 
       # 1. Define the Python version for packaging
-      python = pkgs.python311;
+      python = pkgs.python313;
 
       # 2. Define your dependencies list
       appDependencies = with python.pkgs; [
-        uvicorn
-        fastapi
         openai
         requests
         pydantic-settings
         spotipy
-        python-multipart
-        httpx
         setuptools
         setuptools-scm
+        aiomqtt
+        boto3
       ];
 
     in
@@ -48,7 +46,7 @@
       # This is the actual package build
       packages.${system} = {
         default = python.pkgs.buildPythonApplication {
-          pname = "Voice assistant orchestrator";
+          pname = "Voice assistant tool handler";
           version = "0.1.0";
           pyproject = true;
           # build-system = [ "setuptools" ];
@@ -57,17 +55,8 @@
 
           # The dependencies we listed above
           propagatedBuildInputs = appDependencies;
-
-          # If you do NOT have a pyproject.toml or setup.py,
-          # uncomment the line below to allow a simple script build:
-          # format = "other";
-
-          # Cleanup: Remove files that aren't needed for the installed package
           postInstall = ''
-            cp tools.json $out/lib/python3.11/site-packages/
-
-            # Optional: cleanup tests if needed
-            rm -rf $out/lib/python*/site-packages/tests
+            cp tools.json $out/lib/python3.13/site-packages/
           '';
         };
       };

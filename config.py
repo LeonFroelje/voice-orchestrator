@@ -1,11 +1,27 @@
 import argparse
 import os
 from typing import Optional
-from pydantic import SecretStr, Field, AnyHttpUrl
+from pydantic import SecretStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AppSettings(BaseSettings):
+    # --- MQTT Connection ---
+    mqtt_host: str = Field(
+        default="localhost", description="Mosquitto broker IP/Hostname"
+    )
+    mqtt_port: int = Field(default=1883, description="Mosquitto broker port")
+
+    # --- Object Storage (S3 Compatible) ---
+    s3_endpoint: str = Field(
+        default="http://localhost:3900", description="URL to S3 storage"
+    )
+    s3_access_key: str = Field(default="your-access-key", description="S3 Access Key")
+    s3_secret_key: SecretStr = Field(
+        default="your-secret-key", description="S3 Secret Key"
+    )
+    s3_bucket: str = Field(default="voice-commands", description="S3 Bucket Name")
+
     # --- Home Assistant ---
     ha_url: str = Field(
         default="http://homeassistant.local:8123",
@@ -13,16 +29,8 @@ class AppSettings(BaseSettings):
     )
     ha_token: Optional[SecretStr] = Field(
         default=None,
-        description="Long-lived access token. If not set, checks ha_token_file.",
+        description="Long-lived access token.",
     )
-    ha_token_file: Optional[str] = Field(
-        default=None,
-        description="Path to a file containing the HA token (useful for Docker secrets)",
-    )
-    speaker_id_protocol: str = Field(default="http")
-    speaker_id_host: str = Field(default="localhost")
-    speaker_id_port: int = Field(default=8001)
-    # --- Spotify ---
 
     # --- LLM Service ---
     llm_url: str = Field(
@@ -33,118 +41,39 @@ class AppSettings(BaseSettings):
         default="qwen3:1.7b",
         description="The specific model tag to use for inference",
     )
-    llm_auth_required: bool = Field(
-        default=False,
-        description="If True, the LLM client will send the configured API Key",
-    )
     llm_api_key: SecretStr = Field(
         default="nop", description="API Key for LLM if auth is required"
     )
-    # --- Transcription service ---
-    whisper_host: str = Field(
-        default="localhost", description="Hostname or IP of the Whisper-Live server"
-    )
-    whisper_protocol: str = Field(
-        default="http",
-        description="The protocol to use for transcription (http or https)",
-    )
-    whisper_port: int = Field(
-        default=9090, description="Port of the Whisper-Live server"
-    )
-    whisper_model: str = Field(
-        default="large-v3",
-        description="Whisper model size (tiny, base, small, medium, large-v2, etc.)",
-    )
-    language: str = Field(
-        default="de", description="Language code for STT (e.g., 'en', 'de', 'es')"
-    )
-
-    # --- TTS Service ---
-    tts_url: str = Field(
-        default="http://localhost:5000/v1/audio/speech",
-        description="Endpoint for the Text-to-Speech service",
-    )
-    tts_voice: str = Field(
-        default="de_DE-thorsten-high",
-        description="Voice ID to use for TTS generation",
-    )
 
     # --- System ---
-    host: str = "0.0.0.0"
-    port: int = 8000
     log_level: str = "INFO"
 
-    # Pydantic Config: Tells it to read from .env files automatically
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    def model_post_init(self, __context):
-        """
-        Post-initialization hook to handle the TOKEN_FILE logic.
-        This runs after CLI args and Env vars are merged.
-        """
-        # If Token is missing, but a File path is provided, read the file
-        if self.ha_token is None and self.ha_token_file:
-            try:
-                with open(self.ha_token_file, "r") as f:
-                    self.ha_token = SecretStr(f.read().strip())
-            except IOError as e:
-                raise ValueError(
-                    f"Could not read HA Token file at {self.ha_token_file}: {e}"
-                )
-
-        # Validation: We must have a token by now
-        if self.ha_token is None:
-            raise ValueError(
-                "No Home Assistant Token provided. Set HA_TOKEN or HA_TOKEN_FILE."
-            )
-
 
 def get_settings() -> AppSettings:
-    """
-    Parses CLI arguments first, then initializes Settings.
-    Pydantic precedence: Init Kwargs (CLI) > Environment Vars > Defaults
-    """
     parser = argparse.ArgumentParser(description="Voice Assistant Orchestrator")
 
-    # Add arguments for every field you want controllable via CLI
-    # We use hyphens for CLI (e.g. --ha-url) which map to underscores in Pydantic (ha_url)
+    parser.add_argument("--mqtt-host", help="Mosquitto broker IP/Hostname")
+    parser.add_argument("--mqtt-port", type=int, help="Mosquitto broker port")
+    parser.add_argument("--s3-endpoint", help="URL to S3 storage")
+    parser.add_argument("--s3-access-key", help="S3 Access Key")
+    parser.add_argument("--s3-secret-key", help="S3 Secret Key")
+    parser.add_argument("--s3-bucket", help="S3 Bucket Name")
+
     parser.add_argument("--ha-url", help="Home Assistant URL")
     parser.add_argument("--ha-token", help="Home Assistant Token String")
-    parser.add_argument("--ha-token-file", help="Path to HA Token File")
-
-    parser.add_argument("--spotify-client-id", help="Spotify client id for web api")
-    parser.add_argument(
-        "--spotify-client-secret", help="Spotify client secret for web api"
-    )
-    parser.add_argument(
-        "--spotify-redirect-url", help="Redirect url for Spotify web api"
-    )
 
     parser.add_argument("--llm-url", help="LLM API URL")
     parser.add_argument("--llm-model", help="LLM Model Name")
-    parser.add_argument(
-        "--llm-auth-required", type=bool, help="Set to True if LLM needs Auth"
-    )
 
-    parser.add_argument("--tts-url", help="TTS API URL")
-
-    parser.add_argument("--host", help="Server Host")
-    parser.add_argument("--port", type=int, help="Server Port")
     parser.add_argument("--log-level", help="Logging Level (DEBUG, INFO)")
 
     args, unknown = parser.parse_known_args()
-
-    # Create a dictionary of only the arguments that were actually provided via CLI
-    # This is crucial: If we passed None, it would overwrite the Env Var!
     cli_args = {k.replace("-", "_"): v for k, v in vars(args).items() if v is not None}
-
-    # Initialize Settings
-    # 1. Pydantic loads .env and System Environment variables
-    # 2. We overwrite those with cli_args
     return AppSettings(**cli_args)
 
 
-# Create a global instance for easy import
 settings = get_settings()

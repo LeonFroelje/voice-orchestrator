@@ -1,9 +1,9 @@
 [project]
-name = "my-python-app"
+name = "voice-tool-handler"
 version = "0.1.0"
 dependencies = [
-    "fastapi",
-    "uvicorn",
+    "aiomqtt",
+    "boto3",
     "openai",
     "requests",
     "pydantic-settings",
@@ -15,15 +15,13 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
-voice-orchestrator = "main:start"
+voice-tool-handler = "main:main"
 
 [tool.setuptools]
 # Explicitly list all your python file names (without .py)
 py-modules = [
     "main",
     "ha_client",
-    "spotify_client",
-    "tts_client",
     "tool_handler",
     "config" 
 ]
