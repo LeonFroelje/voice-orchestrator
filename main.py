@@ -156,23 +156,17 @@ def run_llm_inference(room: str, text: str, speaker_id: str) -> tuple[str, list]
             function_name = tool.function.name
             function_args = json.loads(tool.function.arguments)
 
-            if function_name == "manage_volume":
-                level = function_args.get("level", 50)
-                client_actions.append(
-                    {"type": "set_volume", "payload": {"level": level}}
-                )
-                final_text_response = "Lautstärke wurde angepasst."
-            elif function_name == "set_timer":
-                seconds = function_args.get("duration_seconds", 0)
-                client_actions.append(
-                    {"type": "start_timer", "payload": {"duration_seconds": seconds}}
-                )
-                minutes = seconds // 60
-                final_text_response = f"Timer für {minutes} Minuten ist gestellt."
-            else:
-                final_text_response = execute_tool(
-                    function_name, function_args, context=service_context
-                )
+            # if function_name == "manage_volume":
+            #     level = function_args.get("level", 50)
+            #     client_actions.append(
+            #         {"type": "set_volume", "payload": {"level": level}}
+            #     )
+            #     final_text_response = "Lautstärke wurde angepasst."
+
+            # else:
+            final_text_response = execute_tool(
+                function_name, function_args, context=service_context
+            )
     else:
         final_text_response = msg.content
 

@@ -16,9 +16,9 @@
             "enum": ["turn_on", "turn_off"],
             "description": "The action to perform"
           },
-          "brightness": {
+          "brightness_pct": {
             "type": "integer",
-            "description": "Brightness level (0-255). Optional."
+            "description": "Brightness level as a percentage (0-100). Optional."
           }
         },
         "required": ["entity_id", "action"]
@@ -110,16 +110,20 @@
     "type": "function",
     "function": {
       "name": "manage_volume",
-      "description": "Adjust the local speaker volume of the voice assistant.",
+      "description": "Adjust the local speaker volume of the voice satellite.",
       "parameters": {
         "type": "object",
         "properties": {
           "level": {
             "type": "integer",
             "description": "Target volume level (0-100)."
+          },
+          "room": {
+            "type": "string",
+            "description": "The room the voice satellite is placed in"
           }
         },
-        "required": ["level"]
+        "required": ["level", "room"]
       }
     }
   },
@@ -255,23 +259,32 @@
     "type": "function",
     "function": {
       "name": "set_timer",
-      "description": "Start a countdown timer for a specific room.",
+      "description": "Start a countdown timer for a specific room. Provide hours, minutes, and/or seconds.",
       "parameters": {
         "type": "object",
         "properties": {
-          "duration_seconds": {
+          "hours": {
             "type": "integer",
-            "description": "The duration of the timer in seconds. Convert minutes or hours to seconds."
+            "description": "Number of hours for the timer. Optional."
+          },
+          "minutes": {
+            "type": "integer",
+            "description": "Number of minutes for the timer. Optional."
+          },
+          "seconds": {
+            "type": "integer",
+            "description": "Number of seconds for the timer. Optional."
           },
           "room": {
             "type": "string",
             "description": "The room where the timer should ring (e.g., 'Wohnzimmer'). If the user doesn't specify, use the room they are currently in."
           }
         },
-        "required": ["duration_seconds", "room"]
+        "required": ["room"]
       }
     }
   },
+
   {
     "type": "function",
     "function": {

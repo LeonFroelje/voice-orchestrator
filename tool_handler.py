@@ -10,20 +10,21 @@ logger = logging.getLogger(__name__)
 # --- Actual Python Functions ---
 
 
-def control_light(context: Any, **kwargs):
-    """
-    Tool: Turn a light on or off.
-    """
-    action = kwargs.pop("action")  # 'turn_on' or 'turn_off'
+def control_light(context, **kwargs):
+    action = kwargs.pop("action")
     entity_id = kwargs.get("entity_id")
+    brightness_pct = kwargs.get("brightness_pct")
 
-    # Use the client object passed in as 'context'
-    success = context["ha"].call_service("homeassistant", action, kwargs)
+    payload = {"entity_id": entity_id}
+    if brightness_pct is not None:
+        payload["brightness_pct"] = brightness_pct
 
-    if success:
-        return f"Okay, Miau miau."
-    else:
-        return "Tut mir leid, ich konnte die Aktion leider nicht ausführen."
+    success = context["ha"].call_service("light", action, payload)
+    return (
+        "Okay. Miau Miau"
+        if success
+        else "Tut mir leid, ich konnte die Aktion leider nicht ausführen."
+    )
 
 
 def set_temperature(context: Any, **kwargs):
@@ -108,7 +109,7 @@ def play_music(context, **kwargs):
         context["ha"].call_service("music_assistant", "play_media", payload)
 
         # Return a natural confirmation for the LLM to process
-        return ""
+        return "Okay"
     except Exception as e:
         return f"Fehler beim Starten der Musik: {e}"
 
@@ -156,6 +157,27 @@ def previous_track(context, **kwargs):
         return f"Vorheriges Lied im {room} wird gespielt."
     except Exception as e:
         return f"Fehler beim Zurückspringen: {e}"
+
+
+def manage_volume(context, **kwargs):
+    # LLM gives us 0-100
+    level = kwargs.get("level")
+    room = kwargs.get("room", "wohnzimmer")
+
+    # Optional: If you didn't add 'room' to manage_volume JSON, you should!
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+
+    # Convert for Home Assistant (e.g., 50 becomes 0.5)
+    ha_volume = float(level) / 100.0
+
+    payload = {"entity_id": entity_id, "volume_level": ha_volume}
+
+    success = context["ha"].call_service("media_player", "volume_set", payload)
+    return (
+        f"Lautstärke im {room} auf {level} Prozent gesetzt."
+        if success
+        else "Fehler beim Ändern der Lautstärke."
+    )
 
 
 def queue_music(context, **kwargs):
@@ -226,23 +248,43 @@ def whats_playing(context, **kwargs):
 
 
 def set_timer(context, **kwargs):
-    duration_seconds = kwargs.get("duration_seconds")
+    # Default to 0 if the LLM doesn't provide the parameter
+    hours = kwargs.get("hours", 0)
+    minutes = kwargs.get("minutes", 0)
+    seconds = kwargs.get("seconds", 0)
     room = kwargs.get("room", "wohnzimmer")
 
-    # Map the room to a specific HA timer entity (e.g., timer.wohnzimmer)
-    entity_id = f"timer.{sanitize_room(room)}"
+    # Guard against the LLM calling the tool with no time at all
+    if hours == 0 and minutes == 0 and seconds == 0:
+        return "Fehler: Es wurde keine Zeitdauer für den Timer angegeben."
 
-    # Convert seconds to a formatted string (HH:MM:SS) for HA compatibility
-    duration_str = str(datetime.timedelta(seconds=duration_seconds))
+    entity_id = f"timer.{room.lower().replace(' ', '_')}"
 
-    payload = {"entity_id": entity_id, "duration": duration_str}
+    # Python handles the time math perfectly!
+    td = datetime.timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
-    try:
-        # Start the timer in Home Assistant
-        context["ha"].call_service("timer", "start", payload)
-        return f"Timer für {duration_seconds} Sekunden im {room} gestartet."
-    except Exception as e:
-        return f"Fehler beim Starten des Timers: {e}"
+    # str(td) formats the timedelta exactly how HA likes it: "HH:MM:SS" or "H:MM:SS"
+    payload = {"entity_id": entity_id, "duration": str(td)}
+
+    # Call your HA client
+    success = context["ha"].call_service("timer", "start", payload)
+
+    if success:
+        # Build a natural German response for the context
+        time_parts = []
+        if hours > 0:
+            time_parts.append(f"{hours} Stunden")
+        if minutes > 0:
+            time_parts.append(f"{minutes} Minuten")
+        if seconds > 0:
+            time_parts.append(f"{seconds} Sekunden")
+
+        # Joins the parts nicely (e.g., "1 Stunden, 30 Minuten")
+        time_str = ", ".join(time_parts)
+
+        return f"Timer für {time_str} im {room} gestartet."
+    else:
+        return f"Fehler: Konnte den Timer im {room} nicht starten."
 
 
 def cancel_timer(context, **kwargs):
