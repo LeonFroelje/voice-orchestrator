@@ -117,10 +117,10 @@
         with lib;
 
         let
-          cfg = config.services.voice-tool-handler;
+          cfg = config.services.voiceToolHandler;
         in
         {
-          options.services.voice-tool-handler = {
+          options.services.voiceToolHandler = {
             enable = mkEnableOption "Voice Assistant tool handler";
 
             package = mkOption {
