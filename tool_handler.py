@@ -190,13 +190,14 @@ def resume_music(context, **kwargs):
 
 
 def sanitize_room(room):
-    (
+    room = (
         room.lower()
         .replace(" ", "_")
         .replace("ü", "ue")
         .replace("ö", "oe")
         .replace("ä", "ae")
     )
+    return room
 
 
 def whats_playing(context, **kwargs):
