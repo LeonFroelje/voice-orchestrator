@@ -171,7 +171,7 @@ def manage_volume(context, **kwargs):
         return "Fehler: Die Lautstärke muss eine Zahl zwischen 0 und 100 sein."
 
     # Map the room to your MQTT topic structure (e.g., satellite/wohnzimmer/action)
-    topic = f"satellite/{sanitize_room(room)}/action"
+    topic = f"satellite/{room}/action"
 
     # Construct the JSON structure your Satellite's action handler expects
     satellite_payload = {
