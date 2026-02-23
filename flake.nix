@@ -117,15 +117,15 @@
         with lib;
 
         let
-          cfg = config.services.voiceOrchestrator;
+          cfg = config.services.voice-tool-handler;
         in
         {
-          options.services.voiceOrchestrator = {
-            enable = mkEnableOption "Voice Assistant Orchestrator";
+          options.services.voice-tool-handler = {
+            enable = mkEnableOption "Voice Assistant tool handler";
 
             package = mkOption {
               type = types.package;
-              description = "The voice assistant package to use.";
+              description = "The package to use.";
               default = self.packages.${system}.default;
               # Defaults to the package from your flake if you overlay it,
               # otherwise you must set this in your configuration.nix
@@ -134,19 +134,49 @@
             environmentFile = mkOption {
               type = types.nullOr types.path;
               default = null;
-              example = "/run/secrets/voice-assistant.env";
+              example = "/run/secrets/voice-tool-handler.env";
               description = ''
                 Path to an environment file containing secrets.
                 To prevent leaks into the Nix store, this file should contain:
                 - HA_TOKEN
-                - HA_TOKEN_FILE (optional)
-                - SPOTIFY_CLIENT_ID
-                - SPOTIFY_CLIENT_SECRET
+                - S3_SECRET_KEY
                 - LLM_API_KEY
               '';
             };
 
             settings = {
+              # --- MQTT Connection ---
+              mqttHost = mkOption {
+                type = types.str;
+                default = "localhost";
+                description = "Mosquitto broker IP/Hostname";
+              };
+
+              mqttPort = mkOption {
+                type = types.int;
+                default = 1883;
+                description = "Mosquitto broker port";
+              };
+
+              # --- Object Storage (S3 Compatible) ---
+              s3Endpoint = mkOption {
+                type = types.str;
+                default = "http://localhost:3900";
+                description = "URL to S3 storage";
+              };
+
+              s3AccessKey = mkOption {
+                type = types.str;
+                default = "your-access-key";
+                description = "S3 Access Key";
+              };
+
+              s3Bucket = mkOption {
+                type = types.str;
+                default = "voice-commands";
+                description = "S3 Bucket Name";
+              };
+
               # --- Home Assistant ---
               haUrl = mkOption {
                 type = types.str;
@@ -154,102 +184,20 @@
                 description = "The URL of your Home Assistant instance";
               };
 
-              speakerIdProtocol = mkOption {
-                type = types.str;
-                default = "http";
-                description = "Protocol for the Speaker ID service";
-              };
-
-              speakerIdHost = mkOption {
-                type = types.str;
-                default = "localhost";
-                description = "Host for the Speaker ID service";
-              };
-
-              speakerIdPort = mkOption {
-                type = types.int;
-                default = 8001;
-                description = "Port for the Speaker ID service";
-              };
-
-              # --- Spotify ---
-
               # --- LLM Service ---
               llmUrl = mkOption {
                 type = types.str;
                 default = "http://localhost:11434/v1";
-                description = "Base URL for the LLM API";
+                description = "Base URL for the LLM API (Ollama/Llama.cpp)";
               };
 
               llmModel = mkOption {
                 type = types.str;
-                default = "qwen3:1.7b";
-                description = "The specific model tag to use";
-              };
-
-              # llmAuthRequired = mkOption {
-              #   type = types.bool;
-              #   default = false;
-              #   description = "If True, the LLM client will send the API Key";
-              # };
-
-              # --- Transcription Service (Whisper) ---
-              whisperHost = mkOption {
-                type = types.str;
-                default = "localhost";
-                description = "Hostname or IP of the Whisper-Live server";
-              };
-
-              whisperProtocol = mkOption {
-                type = types.str;
-                default = "http";
-                description = "The protocol to use for transcription (http or https)";
-              };
-
-              whisperPort = mkOption {
-                type = types.int;
-                default = 9090;
-                description = "Port of the Whisper-Live server";
-              };
-
-              whisperModel = mkOption {
-                type = types.str;
-                default = "large-v3";
-                description = "Whisper model size";
-              };
-
-              language = mkOption {
-                type = types.str;
-                default = "de";
-                description = "Language code for STT";
-              };
-
-              # --- TTS Service ---
-              ttsUrl = mkOption {
-                type = types.str;
-                default = "http://localhost:5000/v1/audio/speech";
-                description = "Endpoint for the Text-to-Speech service";
-              };
-
-              ttsVoice = mkOption {
-                type = types.str;
-                default = "de_DE-thorsten-high";
-                description = "Voice ID to use for TTS generation";
+                default = "qwen3:4b";
+                description = "The specific model tag to use for inference";
               };
 
               # --- System ---
-              host = mkOption {
-                type = types.str;
-                default = "0.0.0.0";
-                description = "Server Host bind address";
-              };
-
-              port = mkOption {
-                type = types.int;
-                default = 8000;
-                description = "Server Port";
-              };
-
               logLevel = mkOption {
                 type = types.str;
                 default = "INFO";
@@ -259,14 +207,13 @@
           };
 
           config = mkIf cfg.enable {
-            systemd.services.voice-orchestrator = {
-              description = "Voice Assistant Orchestrator Service";
+            systemd.services.voice-tool-handler = {
+              description = "Voice Assistant tool handler Service";
               wantedBy = [ "multi-user.target" ];
               after = [ "network.target" ];
 
               serviceConfig = {
-                # Assuming your pyproject.toml script entry is "voice-assistant"
-                ExecStart = "${cfg.package}/bin/voice-orchestrator";
+                ExecStart = "${cfg.package}/bin/voice-tool-handler";
 
                 # Load secrets from the external file
                 EnvironmentFile = mkIf (cfg.environmentFile != null) cfg.environmentFile;
@@ -279,28 +226,20 @@
               };
 
               # Pass non-secret settings as environment variables
-              # Pydantic is case-insensitive, but Uppercase is standard
+              # Pydantic is case-insensitive, but uppercase is standard
               environment = {
+                MQTT_HOST = cfg.settings.mqttHost;
+                MQTT_PORT = toString cfg.settings.mqttPort;
+
+                S3_ENDPOINT = cfg.settings.s3Endpoint;
+                S3_ACCESS_KEY = cfg.settings.s3AccessKey;
+                S3_BUCKET = cfg.settings.s3Bucket;
+
                 HA_URL = cfg.settings.haUrl;
-                SPEAKER_ID_PROTOCOL = cfg.settings.speakerIdProtocol;
-                SPEAKER_ID_HOST = cfg.settings.speakerIdHost;
-                SPEAKER_ID_PORT = toString cfg.settings.speakerIdPort;
 
                 LLM_URL = cfg.settings.llmUrl;
                 LLM_MODEL = cfg.settings.llmModel;
-                # LLM_AUTH_REQUIRED = if cfg.settings.llmAuthRequired then "true" else "false";
 
-                WHISPER_HOST = cfg.settings.whisperHost;
-                WHISPER_PROTOCOL = cfg.settings.whisperProtocol;
-                WHISPER_PORT = toString cfg.settings.whisperPort;
-                WHISPER_MODEL = cfg.settings.whisperModel;
-                LANGUAGE = cfg.settings.language;
-
-                TTS_URL = cfg.settings.ttsUrl;
-                TTS_VOICE = cfg.settings.ttsVoice;
-
-                HOST = cfg.settings.host;
-                PORT = toString cfg.settings.port;
                 LOG_LEVEL = cfg.settings.logLevel;
 
                 # Python unbuffered output for better logging in journalctl

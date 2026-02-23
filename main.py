@@ -194,6 +194,7 @@ async def process_intent_if_ready(client: aiomqtt.Client, room: str):
 
     # Only proceed if we have both pieces of data
     if text is None or speaker_id is None:
+        logger.debug(f"Either text {text} or speaker-id {speaker_id} was empty")
         return
 
     # Pop the data so we don't process it twice
@@ -253,6 +254,7 @@ async def main_async():
                 topic = message.topic.value
                 payload = json.loads(message.payload.decode())
                 room = payload.get("room")
+                logger.debug(topic, payload, room)
 
                 if not room:
                     continue
@@ -266,7 +268,7 @@ async def main_async():
                     await asyncio.to_thread(handle_finished, room)
 
                 elif topic == "voice/asr/text":
-                    logger.debug(f"Received STT for {room}")
+                    logger.info(f"Received STT for {room}")
                     # Ensure room dict exists (in case STT arrived before wakeword somehow)
                     pending_intents.setdefault(room, {})["text"] = payload.get(
                         "text", ""
