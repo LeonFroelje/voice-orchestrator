@@ -233,5 +233,22 @@
         "required": ["room"]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "clear_queue",
+      "description": "Clears the current music queue or playlist in a specific room or speaker.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "room": {
+            "type": "string",
+            "description": "The room where the music queue should be cleared (e.g., 'Wohnzimmer'). If the user doesn't specify, use the room they are currently in."
+          }
+        },
+        "required": ["room"]
+      }
+    }
   }
 ]

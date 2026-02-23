@@ -54,6 +54,24 @@ def play_spotify_music(context: dict, **kwargs):
     return message
 
 
+def clear_queue(context, **kwargs):
+    room = kwargs.get("room", "wohnzimmer")
+
+    # Format the entity_id exactly like the other media_player functions
+    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    payload = {"entity_id": entity_id}
+
+    try:
+        # Standard media_player service to clear the playlist/queue
+        context["ha"].call_service("media_player", "clear_playlist", payload)
+
+        # Return a natural German confirmation for the LLM
+        return f"Die Warteschlange im {room} wurde geleert."
+
+    except Exception as e:
+        return f"Fehler beim Leeren der Warteschlange: {e}"
+
+
 def activate_scene(context: Any, **kwargs):
     """
     Tool: Activate a Home Assistant scene.
@@ -112,6 +130,7 @@ def stop_music(context, **kwargs):
     except Exception as e:
         return f"Fehler beim Stoppen der Musik: {e}"
 
+
 def next_track(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
     entity_id = f"media_player.{room.lower().replace(' ', '_')}"
@@ -143,7 +162,7 @@ def queue_music(context, **kwargs):
     media_type = kwargs.get("media_type", "track")
     room = kwargs.get("room", "wohnzimmer")
     entity_id = f"media_player.{room.lower().replace(' ', '_')}"
-    
+
     payload = {
         "entity_id": entity_id,
         "media_id": query,
@@ -152,9 +171,10 @@ def queue_music(context, **kwargs):
     }
     try:
         context["ha"].call_service("music_assistant", "play_media", payload)
-        return "" # Empty return for natural confirmation handling
+        return ""  # Empty return for natural confirmation handling
     except Exception as e:
         return f"Fehler beim Einreihen der Musik: {e}"
+
 
 def resume_music(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
@@ -171,29 +191,30 @@ def resume_music(context, **kwargs):
 
 def whats_playing(context, **kwargs):
     import requests
+
     room = kwargs.get("room", "wohnzimmer")
     entity_id = f"media_player.{room.lower().replace(' ', '_')}"
-    
+
     ha_client = context["ha"]
     url = f"{ha_client.base_url}/api/states/{entity_id}"
-    
+
     try:
         # Fetch the current state of the media player directly from HA API
         response = requests.get(url, headers=ha_client.headers)
-        
+
         if response.status_code == 200:
             data = response.json()
             state = data.get("state")
             attributes = data.get("attributes", {})
-            
+
             # Handle cases where nothing is playing
             if state in ["idle", "off", "standby", "unknown", "unavailable"]:
                 return f"Im {room} wird gerade nichts abgespielt."
-            
+
             # Extract track info
             title = attributes.get("media_title", "einem unbekannten Titel")
             artist = attributes.get("media_artist", "einem unbekannten Künstler")
-            
+
             # Provide context back to the LLM so it can formulate a nice natural response
             if state == "paused":
                 return f"Die Musik ist im {room} pausiert. Das aktuelle Lied ist '{title}' von {artist}."
@@ -201,7 +222,7 @@ def whats_playing(context, **kwargs):
                 return f"Im {room} läuft gerade '{title}' von {artist}."
         else:
             return f"Konnte den Status im {room} nicht abrufen (HTTP {response.status_code})."
-            
+
     except Exception as e:
         return f"Fehler bei der Statusabfrage: {e}"
 
@@ -212,12 +233,14 @@ TOOL_MAPPING = {
     "play_music": play_music,
     "activate_scene": activate_scene,
     "stop_music": stop_music,
-    "next_track": next_track,          
-    "previous_track": previous_track, 
-    "queue_music": queue_music,      
-    "resume_music": resume_music,     
-    "whats_playing": whats_playing,   
+    "next_track": next_track,
+    "previous_track": previous_track,
+    "queue_music": queue_music,
+    "resume_music": resume_music,
+    "whats_playing": whats_playing,
+    "clear_queue": clear_queue,
 }
+
 
 def execute_tool(tool_name, tool_args, context):
     ha_client = context.get("ha")
