@@ -159,25 +159,38 @@ def previous_track(context, **kwargs):
         return f"Fehler beim Zurückspringen: {e}"
 
 
+import json
+
+
 def manage_volume(context, **kwargs):
-    # LLM gives us 0-100
+    # The LLM should provide a level between 0 and 100
     level = kwargs.get("level")
     room = kwargs.get("room", "wohnzimmer")
 
-    # Optional: If you didn't add 'room' to manage_volume JSON, you should!
-    entity_id = f"media_player.{room.lower().replace(' ', '_')}"
+    # Safely cast to integer and clamp between 0 and 100
+    try:
+        level = max(0, min(100, int(level)))
+    except (ValueError, TypeError):
+        return "Fehler: Die Lautstärke muss eine Zahl zwischen 0 und 100 sein."
 
-    # Convert for Home Assistant (e.g., 50 becomes 0.5)
-    ha_volume = float(level) / 100.0
+    # Map the room to your MQTT topic structure (e.g., satellite/wohnzimmer/action)
+    topic = f"satellite/{sanitize_room(room)}/action"
 
-    payload = {"entity_id": entity_id, "volume_level": ha_volume}
+    # Construct the JSON structure your Satellite's action handler expects
+    satellite_payload = {
+        "actions": [{"type": "set_volume", "payload": {"level": level}}]
+    }
 
-    success = context["ha"].call_service("media_player", "volume_set", payload)
-    return (
-        f"Lautstärke im {room} auf {level} Prozent gesetzt."
-        if success
-        else "Fehler beim Ändern der Lautstärke."
-    )
+    # Prepare the service call for Home Assistant's MQTT integration
+    ha_service_data = {"topic": topic, "payload": json.dumps(satellite_payload)}
+
+    # Ask HA to publish the message to the broker
+    success = context["ha"].call_service("mqtt", "publish", ha_service_data)
+
+    if success:
+        return f"Lautstärke im {room} auf {level} Prozent gesetzt."
+    else:
+        return f"Fehler beim Senden des Lautstärke-Befehls an das {room}."
 
 
 def queue_music(context, **kwargs):
