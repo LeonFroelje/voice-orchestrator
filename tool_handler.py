@@ -159,9 +159,6 @@ def previous_track(context, **kwargs):
         return f"Fehler beim Zurückspringen: {e}"
 
 
-import json
-
-
 def manage_volume(context, **kwargs):
     # The LLM should provide a level between 0 and 100
     level = kwargs.get("level")
@@ -372,6 +369,7 @@ TOOL_MAPPING = {
     "activate_scene": activate_scene,
     "stop_music": stop_music,
     "next_track": next_track,
+    "manage_volume": manage_volume,
     "previous_track": previous_track,
     "queue_music": queue_music,
     "resume_music": resume_music,
