@@ -222,10 +222,10 @@ async def main_async():
                 if topic.startswith("voice/wakeword/"):
                     # Reset the pending state for this room cleanly
                     pending_intents[room] = {"text": None, "speaker_id": None}
-                    await asyncio.create_task(handle_wakeword, room)
+                    await asyncio.create_task(handle_wakeword(room))
 
                 elif topic.startswith("voice/finished/"):
-                    await asyncio.create_task(handle_finished, room)
+                    await asyncio.create_task(handle_finished(room))
 
                 elif topic == "voice/asr/text":
                     logger.info(f"Received STT for {room}")
