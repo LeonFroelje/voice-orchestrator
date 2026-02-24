@@ -199,6 +199,11 @@
                 default = "INFO";
                 description = "Logging Level (DEBUG, INFO, etc.)";
               };
+              diceCoefficient = mkOption {
+                type = types.float;
+                default = 0.70;
+                description = "The Sørensen–Dice coefficient threshhold";
+              };
             };
           };
 
@@ -240,6 +245,7 @@
 
                 LOG_LEVEL = cfg.settings.logLevel;
 
+                DICE_COEFFICIENT = cfg.settings.diceCoefficient;
                 # Python unbuffered output for better logging in journalctl
                 PYTHONUNBUFFERED = "1";
                 HF_HOME = "%C/voice-tool-handler";
