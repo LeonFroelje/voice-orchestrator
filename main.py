@@ -193,7 +193,6 @@ async def main_async():
         if " " in vocab:
             ha_vocabulary_split += vocab.split(" ")
     # Combine with any hardcoded base vocabulary (like system commands)
-    logger.debug(ha_vocabulary_split)
     base_vocabulary = [
         "spiele musik",
         "musik stoppen",
@@ -204,6 +203,7 @@ async def main_async():
     sanitizer.update_vocabulary(
         ha_vocabulary_split + ha_vocabulary_raw + base_vocabulary
     )
+    logger.info(f"Sanitizer vocabulary: {sanitizer.known_vocabulary}")
 
     try:
         async with aiomqtt.Client(
