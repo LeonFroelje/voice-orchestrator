@@ -245,7 +245,7 @@
 
                 LOG_LEVEL = cfg.settings.logLevel;
 
-                DICE_COEFFICIENT = cfg.settings.diceCoefficient;
+                DICE_COEFFICIENT = toString cfg.settings.diceCoefficient;
                 # Python unbuffered output for better logging in journalctl
                 PYTHONUNBUFFERED = "1";
                 HF_HOME = "%C/voice-tool-handler";
