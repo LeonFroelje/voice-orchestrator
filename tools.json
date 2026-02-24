@@ -340,7 +340,7 @@
     "exact_cache_only": false,
     "function": {
       "name": "current_time",
-      "description": "Checks the current time in a given timezone",
+      "description": "Checks the current time in a given timezone"
     }
   }
 ]
