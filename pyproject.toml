@@ -25,6 +25,7 @@ py-modules = [
     "tool_handler",
     "config",
     "semantic_router",
+    "semantic_cache",
     "sanitizer"
 ]
 [tool.setuptools.package-data]

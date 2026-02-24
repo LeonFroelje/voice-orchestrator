@@ -47,6 +47,9 @@ class AppSettings(BaseSettings):
 
     # --- Semantic Router ---
     embedding_model: str = Field(default="paraphrase-multilingual-MiniLM-L12-v2")
+    dice_coefficient: float = Field(
+        default=0.75, description="The Sørensen–Dice coefficient threshhold"
+    )
 
     # --- System ---
     log_level: str = "INFO"
@@ -72,6 +75,7 @@ def get_settings() -> AppSettings:
     parser.add_argument("--llm-url", help="LLM API URL")
     parser.add_argument("--llm-model", help="LLM Model Name")
     parser.add_argument("--embedding-model")
+    parser.add_argument("--dice-coefficient")
 
     parser.add_argument("--log-level", help="Logging Level (DEBUG, INFO)")
 

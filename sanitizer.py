@@ -32,17 +32,22 @@ class NgramSanitizer:
         return (2.0 * intersection) / (len(tri1) + len(tri2))
 
     def sanitize(self, text: str) -> str:
-        """Scans the STT text and replaces phonetic mistakes with known vocabulary."""
-        sanitized_text = text.lower()
-        words = sanitized_text.split()
+        """Scans the STT text and replaces phonetic mistakes with known vocabulary left-to-right."""
+        words = text.lower().split()
+        result_words = []
 
-        # We use a simple sliding window of 1 to 3 words to catch boundary errors
-        # (e.g., checking "schreib", then "schreib die", then "schreib die schlampe")
-        for window_size in range(3, 0, -1):
-            for i in range(len(words) - window_size + 1):
+        i = 0
+        while i < len(words):
+            match_found = False
+
+            # Try the largest window first (3 words, then 2, then 1)
+            for window_size in range(3, 0, -1):
+                # Don't read past the end of the word list
+                if i + window_size > len(words):
+                    continue
+
                 phrase_chunk = " ".join(words[i : i + window_size])
 
-                # Compare this chunk against our known HA vocabulary
                 best_match = None
                 highest_score = 0.0
 
@@ -52,11 +57,24 @@ class NgramSanitizer:
                         highest_score = score
                         best_match = vocab_word
 
-                # If we find a strong phonetic match, replace the chunk in the text
+                # If we find a strong phonetic match, replace the chunk
                 if highest_score >= self.threshold and best_match:
                     logger.info(
                         f"STT Correction: '{phrase_chunk}' -> '{best_match}' (Score: {highest_score:.2f})"
                     )
-                    sanitized_text = sanitized_text.replace(phrase_chunk, best_match)
 
-        return sanitized_text
+                    # Append the corrected word to our final list
+                    result_words.append(best_match)
+
+                    # Advance the pointer past the words we just consumed!
+                    # This prevents overlapping and recursive replacements.
+                    i += window_size
+                    match_found = True
+                    break  # Break out of the window loop
+
+            if not match_found:
+                # If no match was found for this specific word, keep it exactly as it is
+                result_words.append(words[i])
+                i += 1
+
+        return " ".join(result_words)

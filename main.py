@@ -3,7 +3,7 @@ import json
 import asyncio
 import logging
 import requests
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import aiomqtt
 from openai import OpenAI
@@ -12,7 +12,8 @@ from config import settings
 from ha_client import HomeAssistantClient
 from tool_handler import execute_tool
 from semantic_router import S3SemanticRouter
-from stt_sanitizer import NgramSanitizer
+from semantic_cache import S3SemanticCache
+from sanitizer import NgramSanitizer
 
 # --- Initialization ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -43,7 +44,8 @@ llm_client = OpenAI(
     base_url=settings.llm_url, api_key=settings.llm_api_key.get_secret_value()
 )
 semantic_router = S3SemanticRouter()
-sanitizer = NgramSanitizer(threshold=0.75)
+semantic_cache = S3SemanticCache()
+sanitizer = NgramSanitizer(threshold=settings.dice_coefficient)
 
 ha_headers = {
     "Authorization": f"Bearer {settings.ha_token.get_secret_value()}",
@@ -68,38 +70,16 @@ ROUTE_TOOL_MAP = {
 active_sessions: Dict[str, float] = {}
 pending_intents: Dict[str, Dict[str, Any]] = {}
 
-
-# --- Helper Functions ---
-def get_ha_context_by_label(label="voice-assistant"):
-    """Uses HA Template API to find entities with a specific label."""
-    template = (
-        "{% for entity in label_entities('"
-        + label
-        + "') %}{{ entity }}, {{ states(entity) }}, {{ state_attr(entity, 'friendly_name') }}|{% endfor %}"
-    )
-    try:
-        url = f"{settings.ha_url}/api/template"
-        response = requests.post(url, headers=ha_headers, json={"template": template})
-        response.raise_for_status()
-
-        raw_data = response.text.strip().split("|")
-        context_lines = []
-        for line in raw_data:
-            if line.strip():
-                parts = line.split(",")
-                if len(parts) >= 3:
-                    eid, state, name = (
-                        parts[0].strip(),
-                        parts[1].strip(),
-                        parts[2].strip(),
-                    )
-                    context_lines.append(
-                        f'{{"entity_id": "{eid}", "friendly_name": "{name}", "state": {state}}}'
-                    )
-        return "\n".join(context_lines)
-    except Exception as e:
-        logger.error(f"Error fetching HA context: {e}")
-        return "No devices found."
+FAST_PATH_MAP = {
+    "musik stoppen": ("stop_music", {}),
+    "musik fortsetzen": ("resume_music", {}),
+    "nächstes lied bitte": ("next_track", {}),
+    "leere die warteschlange": ("clear_queue", {}),
+    "was läuft gerade": ("whats_playing", {}),
+    "timer abbrechen": ("cancel_timer", {}),
+    "timer stop": ("cancel_timer", {}),
+    "wie viel zeit ist noch auf dem timer": ("timer_remaining", {}),
+}
 
 
 # --- Event Handlers ---
@@ -137,12 +117,12 @@ def handle_finished(room: str):
 
 
 # --- Core LLM Logic ---
-def run_llm_inference(room: str, text: str, speaker_id: str) -> tuple[str, list]:
+async def run_llm_inference(
+    room: str, text: str, speaker_id: str, route: Optional[str]
+) -> tuple[str, list]:
     """Runs synchronous LLM and tool calls. Executed in a background thread."""
     logger.info(f"Processing command for {room} (Speaker: {speaker_id}): '{text}'")
 
-    # --- 1. Semantic Routing & Tool Filtering ---
-    route = semantic_router.get_route(text)
     active_tools = ha_tools_definitions
 
     if route:
@@ -159,7 +139,7 @@ def run_llm_inference(room: str, text: str, speaker_id: str) -> tuple[str, list]
 
     # --- 2. Build Context ---
     # Fetch strictly filtered device context from the HA client
-    device_context = ha_client.get_dynamic_context(text, room, route)
+    device_context = await ha_client.get_dynamic_context(text, room, route)
     system_prompt = (
         "You are a smart home assistant.\n"
         f"Devices:\n{device_context}\n"
@@ -192,6 +172,7 @@ def run_llm_inference(room: str, text: str, speaker_id: str) -> tuple[str, list]
     final_text_response = ""
     client_actions = []
 
+    executed_tools = []
     # --- 4. Tool Execution ---
     if msg.tool_calls:
         for tool in msg.tool_calls:
@@ -201,66 +182,128 @@ def run_llm_inference(room: str, text: str, speaker_id: str) -> tuple[str, list]
                 f"Function name: \t {function_name}\n Function arguments: \t {function_args}"
             )
 
-            final_text_response = execute_tool(
+            final_text_response = await execute_tool(
                 function_name, function_args, context=service_context
             )
+            executed_tools.append(tool)
     else:
         final_text_response = msg.content
 
     if not final_text_response:
         final_text_response = "Das habe ich nicht verstanden."
 
-    return final_text_response, client_actions
+    return final_text_response, client_actions, executed_tools
 
 
-# --- Async Orchestration ---
+async def resolve_and_execute_intent(
+    room: str, text: str, speaker_id: str
+) -> tuple[str, list]:
+    """Handles the core AI routing logic: Cache -> Fast Path -> LLM -> Cache Learning."""
+    actions = []
+
+    # 1. Check the Semantic Tool Cache FIRST
+    cached_tool, cached_args, cache_score = semantic_cache.get_cached_tool(
+        text, threshold=0.92
+    )
+
+    if cached_tool:
+        logger.info(
+            f"⚡ CACHE HIT: '{text}' matched with score {cache_score:.2f}. Bypassing LLM."
+        )
+        tool_args = cached_args.copy()
+        tool_args["room"] = room
+        response_text = await execute_tool(
+            cached_tool, tool_args, context=service_context
+        )
+        return response_text, actions
+
+    # 2. Ask the Semantic Router for details (since cache missed)
+    route, matched_text, score = semantic_router.get_match_details(text)
+
+    # 3. Check for the Fast Path!
+    if score >= 0.85 and matched_text in FAST_PATH_MAP:
+        tool_name, static_args = FAST_PATH_MAP[matched_text]
+        logger.info(
+            f"⚡ FAST PATH TRIGGERED: '{text}' matched '{matched_text}' ({score:.2f}). Bypassing LLM."
+        )
+
+        tool_args = static_args.copy()
+        tool_args["room"] = room
+        response_text = await execute_tool(
+            tool_name, tool_args, context=service_context
+        )
+        return response_text, actions
+
+    # 4. Fallback: Run the full LLM Inference pipeline
+    logger.info(f"Standard routing (Score: {score:.2f}). Delegating to LLM...")
+    response_text, actions, executed_tools = await run_llm_inference(
+        room, text, speaker_id, route
+    )
+
+    # 5. Learn the new phrase!
+    if executed_tools:
+        for tool in executed_tools:
+            function_name = tool.function.name
+            function_args = json.loads(tool.function.arguments)
+            function_args.pop("room", None)  # Generalize for all rooms
+            semantic_cache.add_to_cache(text, function_name, function_args)
+
+    return response_text, actions
+
+
+async def publish_response(
+    client: aiomqtt.Client, room: str, response_text: str, actions: list
+):
+    """Handles MQTT publishing for satellite hardware actions and TTS generation."""
+    if actions:
+        action_payload = {"actions": actions}
+        await client.publish(
+            f"satellite/{room}/action", payload=json.dumps(action_payload)
+        )
+        # Give satellite a tiny bit of time to process the action before TTS arrives
+        await asyncio.sleep(0.1)
+
+    tts_payload = {"room": room, "text": response_text}
+    await client.publish("voice/tts/generate", payload=json.dumps(tts_payload))
+
+
 async def process_intent_if_ready(client: aiomqtt.Client, room: str):
-    """Checks if both STT and Speaker ID have arrived. If so, runs the LLM task."""
+    """Orchestrator entrypoint. Checks state, sanitizes input, and runs the pipeline."""
     intent_data = pending_intents.get(room)
     if not intent_data:
         return
 
     text = intent_data.get("text")
-    logger.debug(f"Transcribed text: {text}")
-    text = sanitizer.sanitize(text)
-    logger.debug(f"Sanitized text: {text}")
-
     speaker_id = intent_data.get("speaker_id")
 
     # Only proceed if we have both pieces of data
     if text is None or speaker_id is None:
-        logger.debug(f"Either text {text} or speaker-id {speaker_id} was empty")
+        logger.debug(f"Either text '{text}' or speaker-id '{speaker_id}' was empty")
         return
 
     # Pop the data so we don't process it twice
     pending_intents.pop(room)
 
+    # Empty string check
     if not text.strip():
         logger.info(f"Empty transcript for {room}. Aborting.")
-        # Trigger finished event to restore volume
         await client.publish(
             f"voice/finished/{room}", payload=json.dumps({"room": room})
         )
         return
 
+    logger.debug(f"Transcribed text: {text}")
+    text = sanitizer.sanitize(text)
+    logger.debug(f"Sanitized text: {text}")
+
     try:
-        # Run the heavy, synchronous LLM and HTTP requests in a background thread
-        response_text, actions = await asyncio.to_thread(
-            run_llm_inference, room, text, speaker_id
+        # Step 1: Figure out what to do
+        response_text, actions = await resolve_and_execute_intent(
+            room, text, speaker_id
         )
 
-        # 1. Publish Satellite Actions (if any)
-        if actions:
-            action_payload = {"actions": actions}
-            await client.publish(
-                f"satellite/{room}/action", payload=json.dumps(action_payload)
-            )
-            # Give satellite a tiny bit of time to process the action before TTS arrives
-            await asyncio.sleep(0.1)
-
-        # 2. Publish TTS Task
-        tts_payload = {"room": room, "text": response_text}
-        await client.publish("voice/tts/generate", payload=json.dumps(tts_payload))
+        # Step 2: Send the commands back to the house
+        await publish_response(client, room, response_text, actions)
 
     except Exception as e:
         logger.error(f"Error executing intent for {room}: {e}")
@@ -272,6 +315,17 @@ async def process_intent_if_ready(client: aiomqtt.Client, room: str):
 async def main_async():
     logger.info(
         f"Starting Orchestrator connected to {settings.mqtt_host}:{settings.mqtt_port}"
+    )
+    ha_vocabulary_raw = await ha_client.get_voice_vocabulary()
+    ha_vocabulary_split = []
+    for vocab in ha_vocabulary_raw:
+        if " " in vocab:
+            ha_vocabulary_split += vocab.split(" ")
+    # Combine with any hardcoded base vocabulary (like system commands)
+    logger.debug(ha_vocabulary_split)
+    base_vocabulary = ["spiele musik", "musik stoppen", "timer", "lautstärke"]
+    sanitizer.update_vocabulary(
+        ha_vocabulary_split + ha_vocabulary_raw + base_vocabulary
     )
 
     try:
@@ -289,7 +343,7 @@ async def main_async():
                 topic = message.topic.value
                 payload = json.loads(message.payload.decode())
                 room = payload.get("room")
-                logger.debug(topic, payload, room)
+                # logger.debug(topic, payload, room)
 
                 if not room:
                     continue

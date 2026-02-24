@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 # --- Actual Python Functions ---
 
 
-def control_light(context, **kwargs):
+async def control_light(context, **kwargs):
     action = kwargs.pop("action")
     entity_id = kwargs.get("entity_id")
     brightness_pct = kwargs.get("brightness_pct")
@@ -19,7 +19,7 @@ def control_light(context, **kwargs):
     if brightness_pct is not None:
         payload["brightness_pct"] = brightness_pct
 
-    success = context["ha"].call_service("light", action, payload)
+    success = await context["ha"].call_service("light", action, payload)
     return (
         "Okay. Miau Miau"
         if success
@@ -27,12 +27,12 @@ def control_light(context, **kwargs):
     )
 
 
-def set_temperature(context: Any, **kwargs):
+async def set_temperature(context: Any, **kwargs):
     """
     Tool: Set thermostat temperature.
     """
     temp = kwargs.get("temperature")
-    success = context["ha"].call_service("climate", "set_temperature", kwargs)
+    success = await context["ha"].call_service("climate", "set_temperature", kwargs)
 
     if success:
         return f"Temperatur auf {temp} Grad gesetzt."
@@ -40,23 +40,7 @@ def set_temperature(context: Any, **kwargs):
         return f"Konnte Temperatur nicht auf {temp} grad setzen."
 
 
-def play_spotify_music(context: dict, **kwargs):
-    """
-    Tool: Search and play music on a specific device.
-    """
-    spotify = context["spotify"]
-    device = kwargs.get("device_name")
-    query = kwargs.get("query")
-    category = kwargs.get("category", "track")  # default to track
-
-    success, message = spotify.search_and_play(
-        device_name=device, query=query, search_type=category
-    )
-
-    return message
-
-
-def clear_queue(context, **kwargs):
+async def clear_queue(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
 
     # Format the entity_id exactly like the other media_player functions
@@ -65,7 +49,7 @@ def clear_queue(context, **kwargs):
 
     try:
         # Standard media_player service to clear the playlist/queue
-        context["ha"].call_service("media_player", "clear_playlist", payload)
+        await context["ha"].call_service("media_player", "clear_playlist", payload)
 
         # Return a natural German confirmation for the LLM
         return f"Die Warteschlange im {room} wurde geleert."
@@ -74,7 +58,7 @@ def clear_queue(context, **kwargs):
         return f"Fehler beim Leeren der Warteschlange: {e}"
 
 
-def activate_scene(context: Any, **kwargs):
+async def activate_scene(context: Any, **kwargs):
     """
     Tool: Activate a Home Assistant scene.
     """
@@ -84,7 +68,9 @@ def activate_scene(context: Any, **kwargs):
         return "Error: No entity_id provided for the scene."
 
     # In Home Assistant, you turn on a scene to activate it
-    success = context["ha"].call_service("scene", "turn_on", {"entity_id": entity_id})
+    success = await context["ha"].call_service(
+        "scene", "turn_on", {"entity_id": entity_id}
+    )
 
     if success:
         return f"Okay."
@@ -92,7 +78,7 @@ def activate_scene(context: Any, **kwargs):
         return "Tut mir leid, konnte Szene nicht aktivieren"
 
 
-def play_music(context, **kwargs):
+async def play_music(context, **kwargs):
     query = kwargs.get("query")
     media_type = kwargs.get("media_type", "track")
     room = kwargs.get("room")
@@ -106,7 +92,7 @@ def play_music(context, **kwargs):
     try:
         # Use your HA client to call the service.
         # Domain is "music_assistant", Service is "play_media"
-        context["ha"].call_service("music_assistant", "play_media", payload)
+        await context["ha"].call_service("music_assistant", "play_media", payload)
 
         # Return a natural confirmation for the LLM to process
         return "Okay"
@@ -114,7 +100,7 @@ def play_music(context, **kwargs):
         return f"Fehler beim Starten der Musik: {e}"
 
 
-def stop_music(context, **kwargs):
+async def stop_music(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
 
     # Format the entity_id exactly like we did for play_music
@@ -124,7 +110,7 @@ def stop_music(context, **kwargs):
 
     try:
         # We use the standard media_player domain to pause/stop
-        context["ha"].call_service("media_player", "media_pause", payload)
+        await context["ha"].call_service("media_player", "media_pause", payload)
 
         # Return a context string so the LLM knows it succeeded
         return f"Musik im {room} wurde gestoppt."
@@ -133,33 +119,35 @@ def stop_music(context, **kwargs):
         return f"Fehler beim Stoppen der Musik: {e}"
 
 
-def next_track(context, **kwargs):
+async def next_track(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
     entity_id = f"media_player.{sanitize_room(room)}"
     payload = {"entity_id": entity_id}
 
     try:
         # Standard media_player service to skip track
-        context["ha"].call_service("media_player", "media_next_track", payload)
+        await context["ha"].call_service("media_player", "media_next_track", payload)
         return f"Nächstes Lied im {room} wird gespielt."
     except Exception as e:
         return f"Fehler beim Überspringen des Liedes: {e}"
 
 
-def previous_track(context, **kwargs):
+async def previous_track(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
     entity_id = f"media_player.{sanitize_room(room)}"
     payload = {"entity_id": entity_id}
 
     try:
         # Standard media_player service to go back
-        context["ha"].call_service("media_player", "media_previous_track", payload)
+        await context["ha"].call_service(
+            "media_player", "media_previous_track", payload
+        )
         return f"Vorheriges Lied im {room} wird gespielt."
     except Exception as e:
         return f"Fehler beim Zurückspringen: {e}"
 
 
-def manage_volume(context, **kwargs):
+async def manage_volume(context, **kwargs):
     # The LLM should provide a level between 0 and 100
     level = kwargs.get("level")
     room = kwargs.get("room", "wohnzimmer")
@@ -182,7 +170,7 @@ def manage_volume(context, **kwargs):
     ha_service_data = {"topic": topic, "payload": json.dumps(satellite_payload)}
 
     # Ask HA to publish the message to the broker
-    success = context["ha"].call_service("mqtt", "publish", ha_service_data)
+    success = await context["ha"].call_service("mqtt", "publish", ha_service_data)
 
     if success:
         return f"Lautstärke im {room} auf {level} Prozent gesetzt."
@@ -190,7 +178,7 @@ def manage_volume(context, **kwargs):
         return f"Fehler beim Senden des Lautstärke-Befehls an das {room}."
 
 
-def queue_music(context, **kwargs):
+async def queue_music(context, **kwargs):
     query = kwargs.get("query")
     media_type = kwargs.get("media_type", "track")
     room = kwargs.get("room", "wohnzimmer")
@@ -203,20 +191,20 @@ def queue_music(context, **kwargs):
         "enqueue": "add",  # "add" appends to the queue, "next" plays right after current
     }
     try:
-        context["ha"].call_service("music_assistant", "play_media", payload)
+        await context["ha"].call_service("music_assistant", "play_media", payload)
         return ""  # Empty return for natural confirmation handling
     except Exception as e:
         return f"Fehler beim Einreihen der Musik: {e}"
 
 
-def resume_music(context, **kwargs):
+async def resume_music(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
     entity_id = f"media_player.{sanitize_room(room)}"
     payload = {"entity_id": entity_id}
 
     try:
         # We use the standard media_player domain to play/resume
-        context["ha"].call_service("media_player", "media_play", payload)
+        await context["ha"].call_service("media_player", "media_play", payload)
         return f"Musik im {room} wird fortgesetzt."
     except Exception as e:
         return f"Fehler beim Fortsetzen der Musik: {e}"
@@ -233,11 +221,11 @@ def sanitize_room(room):
     return room
 
 
-def whats_playing(context, **kwargs):
+async def whats_playing(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
     entity_id = f"media_player.{room.lower().replace(' ', '_')}"
 
-    state_data = context["ha"].get_state(entity_id)
+    state_data = await context["ha"].get_state(entity_id)
 
     if not state_data:
         return f"Konnte den Player-Status im {room} nicht abrufen."
@@ -257,7 +245,7 @@ def whats_playing(context, **kwargs):
         return f"Im {room} läuft gerade '{title}' von {artist}."
 
 
-def set_timer(context, **kwargs):
+async def set_timer(context, **kwargs):
     # Default to 0 if the LLM doesn't provide the parameter
     hours = kwargs.get("hours", 0)
     minutes = kwargs.get("minutes", 0)
@@ -277,7 +265,7 @@ def set_timer(context, **kwargs):
     payload = {"entity_id": entity_id, "duration": td.total_seconds()}
 
     # Call your HA client
-    success = context["ha"].call_service("timer", "start", payload)
+    success = await context["ha"].call_service("timer", "start", payload)
 
     if success:
         # Build a natural German response for the context
@@ -297,12 +285,14 @@ def set_timer(context, **kwargs):
         return f"Fehler: Konnte den Timer im {room} nicht starten."
 
 
-def cancel_timer(context, **kwargs):
+async def cancel_timer(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
     entity_id = f"timer.{room.lower().replace(' ', '_')}"
 
     # Use your client's call_service and check the boolean return
-    success = context["ha"].call_service("timer", "cancel", {"entity_id": entity_id})
+    success = await context["ha"].call_service(
+        "timer", "cancel", {"entity_id": entity_id}
+    )
 
     if success:
         return f"Timer im {room} wurde abgebrochen."
@@ -312,12 +302,12 @@ def cancel_timer(context, **kwargs):
         )
 
 
-def timer_remaining(context, **kwargs):
+async def timer_remaining(context, **kwargs):
     room = kwargs.get("room", "wohnzimmer")
     entity_id = f"timer.{room.lower().replace(' ', '_')}"
 
     # Use your client's built-in get_state method
-    state_data = context["ha"].get_state(entity_id)
+    state_data = await context["ha"].get_state(entity_id)
 
     if not state_data:
         return f"Konnte den Timer-Status im {room} nicht abrufen. Möglicherweise existiert er nicht."
@@ -379,14 +369,14 @@ TOOL_MAPPING = {
 }
 
 
-def execute_tool(tool_name, tool_args, context):
+async def execute_tool(tool_name, tool_args, context):
     ha_client = context.get("ha")
     if not tool_name in TOOL_MAPPING:
         return f"Error: Tool '{tool_name}' is defined in JSON but not implemented in Python."
 
     try:
         func = TOOL_MAPPING[tool_name]
-        return func(context, **tool_args)
+        return await func(context, **tool_args)
     except Exception as e:
         logger.error(f"Tool execution failed: {e}")
         # return f"I tried to execute {tool_name}, but an error occurred."

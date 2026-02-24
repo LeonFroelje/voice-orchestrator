@@ -15,7 +15,20 @@ class S3SemanticRouter:
         self, bucket_name: str = settings.s3_bucket, object_key: str = "routes.json"
     ):
         logger.info("Initializing Semantic Router (Loading all-MiniLM-L6-v2)...")
-        self.encoder = SentenceTransformer(settings.embedding_model)
+        try:
+            # Fast path: Force offline mode to skip the Hugging Face HTTP checks.
+            # This makes startup instant.
+            self.encoder = SentenceTransformer(
+                settings.embedding_model, local_files_only=True
+            )
+            logger.debug("Loaded embedding model instantly from local cache.")
+        except Exception:
+            # Fallback: If it's the first run or the cache was cleared, allow the download.
+            logger.info(
+                "Model not found in cache. Downloading from Hugging Face (this will take a moment)..."
+            )
+            self.encoder = SentenceTransformer(settings.embedding_model)
+            logger.info("Model downloaded and cached successfully.")
         self.threshold = 0.55  # Cosine similarity threshold
 
         self.s3_client = boto3.client(
@@ -33,7 +46,7 @@ class S3SemanticRouter:
         self.routes = []
         self.utterance_matrix = None
         self.utterance_routes = []
-
+        self.utterance_texts = []
         self.route_dict = {
             "media": [
                 "spiele musik im wohnzimmer",
@@ -107,6 +120,7 @@ class S3SemanticRouter:
 
             all_embeddings.append(normalized_embeddings)
             self.utterance_routes.extend([route_name] * len(utterances))
+            self.utterance_texts.extend(utterances)
 
         # Stack the matrix exactly ONCE
         if all_embeddings:
@@ -149,28 +163,26 @@ class S3SemanticRouter:
             self.utterance_matrix = np.vstack((self.utterance_matrix, normalized))
 
         self.utterance_routes.append(route_name)
+        self.utterance_texts.append(utterance)
         self._sync_to_s3()
 
         return f"Okay, ich habe gelernt, dass '{utterance}' die Kategorie '{route_name}' auslöst."
 
-    def get_route(self, query: str) -> str:
+    def get_match_details(self, query: str) -> tuple[str, str, float]:
+        """Returns (route_category, matched_text, confidence_score)"""
         if self.utterance_matrix is None:
-            logger.debug("No utterance matrix")
-            return None
+            return None, None, 0.0
 
         query_vector = self.encoder.encode([query.lower()])[0]
-
-        # Safe normalization for the query
         norm = np.linalg.norm(query_vector)
         norm = max(norm, 1e-9)
         query_normalized = query_vector / norm
 
         similarities = np.dot(self.utterance_matrix, query_normalized)
         best_match_idx = np.argmax(similarities)
-        best_score = similarities[best_match_idx]
-        logger.debug(best_score)
 
-        if best_score >= self.threshold:
-            return self.utterance_routes[best_match_idx]
+        best_score = float(similarities[best_match_idx])
+        matched_route = self.utterance_routes[best_match_idx]
+        matched_text = self.utterance_texts[best_match_idx]
 
-        return None
+        return matched_route, matched_text, best_score
