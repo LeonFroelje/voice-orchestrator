@@ -1,4 +1,5 @@
 import logging
+import pytz
 import datetime
 import json
 from typing import Dict, Any, Callable
@@ -352,6 +353,78 @@ async def timer_remaining(context, **kwargs):
         return f"Der Status des Timers im {room} ist: {state}."
 
 
+async def get_current_time(context, **kwargs):
+    """
+    Tool: Get the current time for a specific location.
+    Defaults to Bremen (Europe/Berlin) if no location is specified.
+    """
+    location = kwargs.get("location", "Bremen").lower()
+
+    # Mapping common names to IANA timezone strings
+    timezone_map = {
+        "bremen": "Europe/Berlin",
+        "berlin": "Europe/Berlin",
+        "germany": "Europe/Berlin",
+        "deutschland": "Europe/Berlin",
+        "japan": "Asia/Tokyo",
+        "tokyo": "Asia/Tokyo",
+        "tokio": "Asia/Tokyo",
+        "new york": "America/New_York",
+        "london": "Europe/London",
+    }
+
+    # Get the timezone string, default to Berlin/Bremen if not found
+    tz_string = timezone_map.get(location, "Europe/Berlin")
+
+    try:
+        tz = pytz.timezone(tz_string)
+        now = datetime.datetime.now(tz)
+        time_str = now.strftime("%H:%M")
+
+        # Determine the display name for the response
+        display_location = location.capitalize()
+        return f"Es ist gerade {time_str} Uhr in {display_location}."
+
+    except Exception as e:
+        logger.error(f"Error fetching time: {e}")
+        return "Ich konnte die aktuelle Uhrzeit leider nicht abrufen."
+
+
+async def get_weather(context, **kwargs):
+    """
+    Tool: Get current weather for a location.
+    """
+    location = kwargs.get("location", "Bremen")
+
+    # Example: Fetching from Home Assistant's weather integration
+    # Typically weather.home or weather.forecast_home
+    entity_id = "weather.home"
+
+    state_data = await context["ha"].get_state(entity_id)
+
+    if not state_data:
+        return f"Ich konnte keine Wetterdaten für {location} finden."
+
+    temp = state_data.get("attributes", {}).get("temperature")
+    condition = state_data.get("state")  # e.g., 'sunny', 'cloudy'
+
+    # Simple German mapping for common HA states
+    conditions_de = {
+        "sunny": "sonnig",
+        "cloudy": "bewölkt",
+        "partlycloudy": "leicht bewölkt",
+        "rainy": "regnerisch",
+        "clear-night": "klar",
+        "snowy": "verschneit",
+    }
+
+    cond_text = conditions_de.get(condition, condition)
+
+    return f"In {location} ist es aktuell {cond_text} bei {temp} Grad."
+
+
+# Update TOOL_MAPPING
+
 TOOL_MAPPING = {
     "control_light": control_light,
     "set_temperature": set_temperature,
@@ -366,6 +439,8 @@ TOOL_MAPPING = {
     "whats_playing": whats_playing,
     "clear_queue": clear_queue,
     "set_timer": set_timer,
+    "get_weather": get_weather,
+    "get_current_time": get_current_time,
 }
 
 

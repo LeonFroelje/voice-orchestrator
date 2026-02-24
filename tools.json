@@ -337,10 +337,36 @@
   },
   {
     "type": "function",
-    "exact_cache_only": false,
+    "exact_cache_only": true,
     "function": {
-      "name": "current_time",
-      "description": "Checks the current time in a given timezone"
+      "name": "get_current_time",
+      "description": "Checks the current time for a specific location or city. If no location is provided, it defaults to the home location (Bremen).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "The city or country to check the time for (e.g., 'Japan', 'Bremen', 'New York')."
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "exact_cache_only": true,
+    "function": {
+      "name": "get_weather",
+      "description": "Checks the current weather and temperature for a specific location. Defaults to Bremen if no location is specified.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "The city to check the weather for (e.g., 'Berlin', 'Tokyo')."
+          }
+        }
+      }
     }
   }
 ]

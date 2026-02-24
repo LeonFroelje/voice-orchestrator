@@ -79,6 +79,7 @@ ROUTE_TOOL_MAP = {
     ],
     "timers": ["set_timer", "cancel_timer", "timer_remaining"],
     "home_control": ["control_light", "set_temperature", "activate_scene"],
+    "information": ["get_current_time", "get_weather"],
 }
 
 intent_processor = IntentProcessor(

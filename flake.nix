@@ -30,6 +30,7 @@
 
       # 2. Define your dependencies list
       appDependencies = with python.pkgs; [
+        pytz
         openai
         requests
         pydantic-settings
