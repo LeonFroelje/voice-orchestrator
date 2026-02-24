@@ -116,6 +116,8 @@ class IntentProcessor:
         route, matched_text, score = self.semantic_router.get_match_details(text)
         logger.info(f"Standard routing (Score: {score:.2f}). Delegating to LLM...")
 
+        if score <= 0.6:
+            route = None
         response_text, actions, executed_tools = await self.run_llm_inference(
             room, text, speaker_id, route
         )
