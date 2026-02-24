@@ -45,6 +45,9 @@ class AppSettings(BaseSettings):
         default="nop", description="API Key for LLM if auth is required"
     )
 
+    # --- Semantic Router ---
+    embedding_model: str = Field(default="paraphrase-multilingual-MiniLM-L12-v2")
+
     # --- System ---
     log_level: str = "INFO"
 
@@ -68,6 +71,7 @@ def get_settings() -> AppSettings:
 
     parser.add_argument("--llm-url", help="LLM API URL")
     parser.add_argument("--llm-model", help="LLM Model Name")
+    parser.add_argument("--embedding-model")
 
     parser.add_argument("--log-level", help="Logging Level (DEBUG, INFO)")
 

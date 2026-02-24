@@ -38,6 +38,7 @@
         setuptools-scm
         aiomqtt
         boto3
+        sentence-transformers
       ];
 
     in
@@ -65,19 +66,14 @@
       devShells.${system} = {
 
         # Your existing default FHS shell
-        default =
-          (pkgs.buildFHSEnv {
-            name = "Python dev shell";
-            targetPkgs =
-              p: with p; [
-                fd
-                ripgrep
-                (nixvimModules.lib.mkNvim [ nixvimModules.nixosModules.python ])
-                python314
-                python314Packages.pip
-              ];
-            runScript = "zsh";
-          }).env;
+        default = pkgs.mkShell {
+          name = "lel";
+          packages = [
+            (python.withPackages (pypkgs: with pypkgs; appDependencies))
+            (nixvimModules.lib.mkNvim [ nixvimModules.nixosModules.python ])
+          ];
+          shellHook = "zsh";
+        };
 
         # Your existing UV shell
         uv =
@@ -223,6 +219,8 @@
                 ProtectSystem = "strict";
                 ProtectHome = true;
                 PrivateTmp = true;
+                StateDirectory = "voice-tool-handler";
+                CacheDirectory = "voice-tool-handler";
               };
 
               # Pass non-secret settings as environment variables
@@ -244,6 +242,7 @@
 
                 # Python unbuffered output for better logging in journalctl
                 PYTHONUNBUFFERED = "1";
+                HF_HOME = "%C/voice-tool-handler";
               };
             };
           };

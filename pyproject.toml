@@ -23,7 +23,9 @@ py-modules = [
     "main",
     "ha_client",
     "tool_handler",
-    "config" 
+    "config",
+    "semantic_router",
+    "sanitizer"
 ]
 [tool.setuptools.package-data]
 # Include json files for all modules

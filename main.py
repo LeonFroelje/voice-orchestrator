@@ -11,6 +11,8 @@ from openai import OpenAI
 from config import settings
 from ha_client import HomeAssistantClient
 from tool_handler import execute_tool
+from semantic_router import S3SemanticRouter
+from stt_sanitizer import NgramSanitizer
 
 # --- Initialization ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -40,12 +42,28 @@ service_context = {"ha": ha_client}
 llm_client = OpenAI(
     base_url=settings.llm_url, api_key=settings.llm_api_key.get_secret_value()
 )
+semantic_router = S3SemanticRouter()
+sanitizer = NgramSanitizer(threshold=0.75)
 
 ha_headers = {
     "Authorization": f"Bearer {settings.ha_token.get_secret_value()}",
     "Content-Type": "application/json",
 }
-
+ROUTE_TOOL_MAP = {
+    "media": [
+        "play_music",
+        "stop_music",
+        "next_track",
+        "previous_track",
+        "queue_music",
+        "resume_music",
+        "whats_playing",
+        "clear_queue",
+        "manage_volume",
+    ],
+    "timers": ["set_timer", "cancel_timer", "timer_remaining"],
+    "home_control": ["control_light", "set_temperature", "activate_scene"],
+}
 # State Management
 active_sessions: Dict[str, float] = {}
 pending_intents: Dict[str, Dict[str, Any]] = {}
@@ -123,8 +141,25 @@ def run_llm_inference(room: str, text: str, speaker_id: str) -> tuple[str, list]
     """Runs synchronous LLM and tool calls. Executed in a background thread."""
     logger.info(f"Processing command for {room} (Speaker: {speaker_id}): '{text}'")
 
-    device_context = get_ha_context_by_label("voice-assistant")
+    # --- 1. Semantic Routing & Tool Filtering ---
+    route = semantic_router.get_route(text)
+    active_tools = ha_tools_definitions
 
+    if route:
+        logger.info(f"Semantic route matched: '{route}'. Filtering tools...")
+        allowed_tool_names = ROUTE_TOOL_MAP.get(route, [])
+        # Filter the massive tools.json payload down to just what is needed
+        active_tools = [
+            tool
+            for tool in ha_tools_definitions
+            if tool["function"]["name"] in allowed_tool_names
+        ]
+    else:
+        logger.info("No clear semantic route matched. Using all available tools.")
+
+    # --- 2. Build Context ---
+    # Fetch strictly filtered device context from the HA client
+    device_context = ha_client.get_dynamic_context(text, room, route)
     system_prompt = (
         "You are a smart home assistant.\n"
         f"Devices:\n{device_context}\n"
@@ -140,30 +175,32 @@ def run_llm_inference(room: str, text: str, speaker_id: str) -> tuple[str, list]
         {"role": "user", "content": text},
     ]
 
+    # If a route was matched but mapped to no tools, active_tools will be empty.
+    # The LLM API expects `tools` to be undefined/None if empty.
+    tools_param = active_tools if active_tools else None
+    tool_choice_param = "auto" if active_tools else "none"
+
     response = llm_client.chat.completions.create(
         model=settings.llm_model,
         messages=messages,
-        tools=ha_tools_definitions,
-        tool_choice="auto",
+        tools=tools_param,
+        tool_choice=tool_choice_param,
     )
 
     msg = response.choices[0].message
+    logger.debug(f"Message: {msg}")
     final_text_response = ""
     client_actions = []
 
+    # --- 4. Tool Execution ---
     if msg.tool_calls:
         for tool in msg.tool_calls:
             function_name = tool.function.name
             function_args = json.loads(tool.function.arguments)
+            logger.debug(
+                f"Function name: \t {function_name}\n Function arguments: \t {function_args}"
+            )
 
-            # if function_name == "manage_volume":
-            #     level = function_args.get("level", 50)
-            #     client_actions.append(
-            #         {"type": "set_volume", "payload": {"level": level}}
-            #     )
-            #     final_text_response = "Lautstärke wurde angepasst."
-
-            # else:
             final_text_response = execute_tool(
                 function_name, function_args, context=service_context
             )
@@ -184,6 +221,10 @@ async def process_intent_if_ready(client: aiomqtt.Client, room: str):
         return
 
     text = intent_data.get("text")
+    logger.debug(f"Transcribed text: {text}")
+    text = sanitizer.sanitize(text)
+    logger.debug(f"Sanitized text: {text}")
+
     speaker_id = intent_data.get("speaker_id")
 
     # Only proceed if we have both pieces of data
