@@ -11,8 +11,20 @@ logger = logging.getLogger("SemanticCache")
 
 class S3SemanticCache:
     def __init__(
-        self, bucket_name: str = settings.s3_bucket, object_key: str = "tool_cache.json"
+        self,
+        exact_tools: set,
+        bucket_name: str = settings.s3_bucket,
+        object_key: str = "tool_cache.json",
     ):
+        self.exact_tools = exact_tools
+        self.bucket = bucket_name
+        self.key = object_key
+
+        # Structure: {"mach das licht aus": {"tool": "control_light", "args": {"action": "turn_off"}, "exact_only": False}}
+        self.cache_dict = {}
+        self.utterance_matrix = None
+        self.utterance_texts = []
+
         logger.info("Initializing Semantic Tool Cache...")
         try:
             self.encoder = SentenceTransformer(
@@ -29,13 +41,6 @@ class S3SemanticCache:
             region_name="garage",
             config=boto3.session.Config(signature_version="s3v4"),
         )
-        self.bucket = bucket_name
-        self.key = object_key
-
-        # Structure: {"mach das licht aus": {"tool": "control_light", "args": {"action": "turn_off"}}}
-        self.cache_dict = {}
-        self.utterance_matrix = None
-        self.utterance_texts = []
 
         self._load_from_s3()
 
@@ -44,6 +49,21 @@ class S3SemanticCache:
             response = self.s3_client.get_object(Bucket=self.bucket, Key=self.key)
             self.cache_dict = json.loads(response["Body"].read().decode("utf-8"))
             logger.info(f"Loaded {len(self.cache_dict)} cached commands from S3.")
+
+            # --- SELF HEALING: Update old cache flags to match current tools.json ---
+            cache_changed = False
+            for text, data in self.cache_dict.items():
+                should_be_exact = data["tool"] in self.exact_tools
+                if data.get("exact_only") != should_be_exact:
+                    self.cache_dict[text]["exact_only"] = should_be_exact
+                    cache_changed = True
+
+            if cache_changed:
+                logger.info(
+                    "Updated stale exact_only flags in cache to match current registry."
+                )
+                self._sync_to_s3()
+
         except botocore.exceptions.ClientError:
             logger.warning("No tool_cache.json found. Starting fresh.")
             self._sync_to_s3()
@@ -51,7 +71,13 @@ class S3SemanticCache:
         self._rebuild_matrix()
 
     def _rebuild_matrix(self):
-        self.utterance_texts = list(self.cache_dict.keys())
+        # ONLY include texts that are allowed to be fuzzy matched!
+        self.utterance_texts = [
+            text
+            for text, data in self.cache_dict.items()
+            if not data.get("exact_only", False)
+        ]
+
         if not self.utterance_texts:
             self.utterance_matrix = None
             return
@@ -70,8 +96,8 @@ class S3SemanticCache:
     def add_to_cache(self, utterance: str, tool_name: str, tool_args: dict):
         utterance = utterance.lower().strip()
 
-        # Flag tools that contain dynamic variables so they are NEVER fuzzy matched
-        exact_only = tool_name in ["set_timer", "set_temperature", "manage_volume"]
+        # Check against our dynamic registry passed from main.py
+        exact_only = tool_name in self.exact_tools
 
         if utterance not in self.cache_dict:
             self.cache_dict[utterance] = {
@@ -83,7 +109,7 @@ class S3SemanticCache:
                 f"Learned new phrase for cache: '{utterance}' -> {tool_name} (Exact Only: {exact_only})"
             )
 
-            # Only add to the embedding matrix if it's allowed to be fuzzy matched
+            # Only rebuild the matrix if a new FUZZY command was added
             if not exact_only:
                 self._rebuild_matrix()
 
@@ -116,9 +142,11 @@ class S3SemanticCache:
             matched_text = self.utterance_texts[best_idx]
             cached_data = self.cache_dict[matched_text]
 
-            # Guardrail: Ensure we don't accidentally fuzzy-match a variable tool
-            # (Though our updated add_to_cache prevents them from entering the matrix, this is a safe fallback)
+            # Defensive guardrail: Double check we aren't returning an exact_only tool
             if not cached_data.get("exact_only", False):
+                logger.debug(
+                    f"Semantic match found: '{query}' matched '{matched_text}' ({best_score:.2f})"
+                )
                 return cached_data["tool"], cached_data["args"], best_score
 
         return None, None, best_score

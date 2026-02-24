@@ -370,8 +370,7 @@ TOOL_MAPPING = {
 
 
 async def execute_tool(tool_name, tool_args, context):
-    ha_client = context.get("ha")
-    if not tool_name in TOOL_MAPPING:
+    if tool_name not in TOOL_MAPPING:
         return f"Error: Tool '{tool_name}' is defined in JSON but not implemented in Python."
 
     try:

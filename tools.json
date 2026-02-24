@@ -1,6 +1,7 @@
 [
   {
     "type": "function",
+    "exact_cache_only": true,
     "function": {
       "name": "control_light",
       "description": "Turn a light on or off, or change brightness.",
@@ -27,6 +28,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": true,
     "function": {
       "name": "set_temperature",
       "description": "Set the target temperature for a climate device.",
@@ -48,6 +50,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": true,
     "function": {
       "name": "play_music",
       "description": "Searches for and plays music using Music Assistant. Targets a specific room or speaker.",
@@ -74,6 +77,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": false,
     "function": {
       "name": "stop_music",
       "description": "Stops or pauses music playback in a specific room or speaker.",
@@ -91,6 +95,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": true,
     "function": {
       "name": "activate_scene",
       "description": "Activates a predefined smart home scene (e.g., for cozy lighting, sleeping, waking up, or leaving home). A scene can also be triggered by e.g. Ich gehe schlafen for the scene.schlafen",
@@ -108,6 +113,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": true,
     "function": {
       "name": "manage_volume",
       "description": "Adjust the local speaker volume of the voice satellite.",
@@ -129,6 +135,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": true,
     "function": {
       "name": "set_timer",
       "description": "Start a countdown timer on the local device.",
@@ -146,6 +153,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": false,
     "function": {
       "name": "next_track",
       "description": "Skips to the next song in a specific room or speaker.",
@@ -163,6 +171,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": false,
     "function": {
       "name": "previous_track",
       "description": "Goes back to the previous song in a specific room or speaker.",
@@ -180,6 +189,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": true,
     "function": {
       "name": "queue_music",
       "description": "Searches for and adds music to the end of the queue using Music Assistant. Targets a specific room or speaker.",
@@ -206,6 +216,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": false,
     "function": {
       "name": "resume_music",
       "description": "Resumes or unpauses music playback in a specific room or speaker.",
@@ -223,6 +234,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": false,
     "function": {
       "name": "whats_playing",
       "description": "Checks what song, artist, or media is currently playing in a specific room.",
@@ -240,6 +252,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": false,
     "function": {
       "name": "clear_queue",
       "description": "Clears the current music queue or playlist in a specific room or speaker.",
@@ -257,6 +270,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": true,
     "function": {
       "name": "set_timer",
       "description": "Start a countdown timer for a specific room. Provide hours, minutes, and/or seconds.",
@@ -287,6 +301,7 @@
 
   {
     "type": "function",
+    "exact_cache_only": false,
     "function": {
       "name": "cancel_timer",
       "description": "Cancels or stops a running timer in a specific room.",
@@ -304,6 +319,7 @@
   },
   {
     "type": "function",
+    "exact_cache_only": false,
     "function": {
       "name": "timer_remaining",
       "description": "Checks how much time is remaining on the currently running timer in a specific room.",
@@ -317,6 +333,14 @@
         },
         "required": ["room"]
       }
+    }
+  },
+  {
+    "type": "function",
+    "exact_cache_only": false,
+    "function": {
+      "name": "current_time",
+      "description": "Checks the current time in a given timezone",
     }
   }
 ]

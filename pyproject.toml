@@ -26,7 +26,8 @@ py-modules = [
     "config",
     "semantic_router",
     "semantic_cache",
-    "sanitizer"
+    "sanitizer",
+    "intent_processor"
 ]
 [tool.setuptools.package-data]
 # Include json files for all modules
