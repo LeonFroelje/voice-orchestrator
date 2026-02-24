@@ -95,16 +95,16 @@ pending_intents: Dict[str, Dict[str, Any]] = {}
 
 
 # --- Event Handlers ---
-def handle_wakeword(room: str):
+async def handle_wakeword(room: str):
     """Lowers volume of the media_player in that room."""
     entity_id = f"media_player.{room.lower().replace(' ', '_')}"
     try:
-        state = ha_client.get_state(entity_id)
+        state = await ha_client.get_state(entity_id)
         if state and state.get("state") == "playing":
             current_volume = state.get("attributes", {}).get("volume_level", 0.5)
             active_sessions[room] = current_volume
             duck_volume = max(0.1, current_volume * 0.5)
-            ha_client.call_service(
+            await ha_client.call_service(
                 "media_player",
                 "volume_set",
                 {"entity_id": entity_id, "volume_level": duck_volume},
@@ -113,13 +113,13 @@ def handle_wakeword(room: str):
         logger.error(f"Failed to duck volume for {room}: {e}")
 
 
-def handle_finished(room: str):
+async def handle_finished(room: str):
     """Restores the original volume."""
     if room in active_sessions:
         original_volume = active_sessions.pop(room)
         entity_id = f"media_player.{room.lower().replace(' ', '_')}"
         try:
-            ha_client.call_service(
+            await ha_client.call_service(
                 "media_player",
                 "volume_set",
                 {"entity_id": entity_id, "volume_level": original_volume},
@@ -222,10 +222,10 @@ async def main_async():
                 if topic.startswith("voice/wakeword/"):
                     # Reset the pending state for this room cleanly
                     pending_intents[room] = {"text": None, "speaker_id": None}
-                    await asyncio.to_thread(handle_wakeword, room)
+                    await asyncio.create_task(handle_wakeword, room)
 
                 elif topic.startswith("voice/finished/"):
-                    await asyncio.to_thread(handle_finished, room)
+                    await asyncio.create_task(handle_finished, room)
 
                 elif topic == "voice/asr/text":
                     logger.info(f"Received STT for {room}")
