@@ -119,6 +119,7 @@ class IntentProcessor:
         if score <= 0.6:
             route = None
         else:
+            logger.info(f"Router learned new phrase {text} for route {route}")
             self.semantic_router.learn_new_phrase(route, text)
         response_text, actions, executed_tools = await self.run_llm_inference(
             room, text, speaker_id, route
@@ -130,8 +131,12 @@ class IntentProcessor:
                 function_name = tool.function.name
                 function_args = json.loads(tool.function.arguments)
                 function_args.pop("room", None)
+                logger.info(
+                    f"Cached new tool {function_name} for command {text} with args {function_args}"
+                )
                 self.semantic_cache.add_to_cache(text, function_name, function_args)
 
+                logger.info(f"Router learned new phrase {text} for route {route}")
                 self.semantic_router.learn_new_phrase(
                     self._get_route(function_name), text
                 )
