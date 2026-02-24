@@ -194,7 +194,13 @@ async def main_async():
             ha_vocabulary_split += vocab.split(" ")
     # Combine with any hardcoded base vocabulary (like system commands)
     logger.debug(ha_vocabulary_split)
-    base_vocabulary = ["spiele musik", "musik stoppen", "timer", "lautstärke"]
+    base_vocabulary = [
+        "spiele musik",
+        "musik stoppen",
+        "timer",
+        "lautstärke",
+        "musik aus",
+    ]
     sanitizer.update_vocabulary(
         ha_vocabulary_split + ha_vocabulary_raw + base_vocabulary
     )
@@ -214,7 +220,6 @@ async def main_async():
                 topic = message.topic.value
                 payload = json.loads(message.payload.decode())
                 room = payload.get("room")
-                # logger.debug(topic, payload, room)
 
                 if not room:
                     continue

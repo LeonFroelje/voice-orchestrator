@@ -118,6 +118,8 @@ class IntentProcessor:
 
         if score <= 0.6:
             route = None
+        else:
+            self.semantic_router.learn_new_phrase(route, text)
         response_text, actions, executed_tools = await self.run_llm_inference(
             room, text, speaker_id, route
         )
@@ -130,4 +132,12 @@ class IntentProcessor:
                 function_args.pop("room", None)
                 self.semantic_cache.add_to_cache(text, function_name, function_args)
 
+                self.semantic_router.learn_new_phrase(
+                    self._get_route(function_name), text
+                )
         return response_text, actions
+
+    def _get_route(self, function_name: str):
+        for route in self.route_map:
+            if function_name in route:
+                return route
