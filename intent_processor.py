@@ -145,6 +145,7 @@ class IntentProcessor:
         return response_text, actions
 
     def _get_route(self, function_name: str):
-        for route in self.route_map:
-            if function_name in route:
-                return route
+        for route_name, tools_list in self.route_map.items():
+            if function_name in tools_list:
+                return route_name
+        return None  # Fallback if the tool isn't in the map
