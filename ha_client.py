@@ -2,7 +2,7 @@ import logging
 import aiohttp
 from typing import Dict, Any, Optional, List
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("HaClient")
 
 ROUTE_DOMAIN_MAP = {
     "media": ["media_player"],

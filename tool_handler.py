@@ -6,7 +6,7 @@ from typing import Dict, Any, Callable
 # Import your HA service call function here or pass it in
 # For this example, I'll assume it's imported from a common util or passed as a dependency
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("Tool Handler")
 
 # --- Actual Python Functions ---
 
