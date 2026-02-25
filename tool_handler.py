@@ -443,6 +443,8 @@ TOOL_MAPPING = {
     "whats_playing": whats_playing,
     "clear_queue": clear_queue,
     "set_timer": set_timer,
+    "cancel_timer": cancel_timer,
+    "timer_remaining": timer_remaining,
     "get_weather": get_weather,
     "get_current_time": get_current_time,
 }
