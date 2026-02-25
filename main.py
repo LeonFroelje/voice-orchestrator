@@ -166,7 +166,7 @@ async def process_intent_if_ready(client: aiomqtt.Client, room: str):
         )
         return
 
-    logger.info("TEXT: {text}")
+    logger.info(f"TEXT: {text}")
     text = sanitizer.sanitize(text)
 
     try:
