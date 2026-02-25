@@ -116,10 +116,6 @@ class IntentProcessor:
         logger.info(f"Standard routing (Score: {score:.2f}). Delegating to LLM...")
         if score < 0.6:
             route = None
-
-        else:
-            logger.info(f"Router learned new phrase {text} for route {route}")
-            self.semantic_router.learn_new_phrase(route, text)
         response_text, actions, executed_tools = await self.run_llm_inference(
             room, text, speaker_id, route
         )
