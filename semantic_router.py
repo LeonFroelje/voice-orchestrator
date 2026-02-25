@@ -219,5 +219,6 @@ class S3SemanticRouter:
         best_score = float(similarities[best_match_idx])
         matched_route = self.utterance_routes[best_match_idx]
         matched_text = self.utterance_texts[best_match_idx]
+        logger.info(matched_route)
 
         return matched_route, matched_text, best_score
