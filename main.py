@@ -98,6 +98,7 @@ pending_intents: Dict[str, Dict[str, Any]] = {}
 # --- Event Handlers ---
 async def handle_wakeword(room: str):
     """Lowers volume of the media_player in that room."""
+    logger.info(f"ROOM: {room}")
     entity_id = f"media_player.{room.lower().replace(' ', '_')}"
     try:
         state = await ha_client.get_state(entity_id)
@@ -133,6 +134,7 @@ async def publish_response(
     client: aiomqtt.Client, room: str, response_text: str, actions: list
 ):
     """Handles MQTT publishing for satellite hardware actions and TTS generation."""
+    logger.info(f"ROOM: {room}")
     if actions:
         action_payload = {"actions": actions}
         await client.publish(
