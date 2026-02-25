@@ -165,6 +165,8 @@ class S3SemanticRouter:
         )
 
     def learn_new_phrase(self, route_name: str, utterance: str):
+        logger.info(route_name)
+        logger.info(utterance)
         route_name = route_name.lower().strip()
         utterance = utterance.lower().strip()
 
@@ -205,6 +207,7 @@ class S3SemanticRouter:
         if self.utterance_matrix is None:
             return None, None, 0.0
 
+        logger.info(query)
         query_vector = self.encoder.encode([query.lower()])[0]
         norm = np.linalg.norm(query_vector)
         norm = max(norm, 1e-9)
