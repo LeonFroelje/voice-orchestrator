@@ -173,7 +173,7 @@ async def process_intent_if_ready(client: aiomqtt.Client, room: str):
         response_text, actions = await intent_processor.resolve_and_execute_intent(
             room, text, speaker_id
         )
-
+        logger.info(f"TTS text: {response_text}")
         # Step 2: Send the commands back to the house
         await publish_response(client, room, response_text, actions)
 
