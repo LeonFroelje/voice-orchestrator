@@ -445,6 +445,7 @@ TOOL_MAPPING = {
 
 
 async def execute_tool(tool_name, tool_args, context):
+    logger.info(f"Tool name: {tool_name}, Tool args: {tool_args}")
     if tool_name not in TOOL_MAPPING:
         return f"Error: Tool '{tool_name}' is defined in JSON but not implemented in Python."
 
