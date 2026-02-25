@@ -33,7 +33,11 @@ async def set_temperature(context: Any, **kwargs):
     Tool: Set thermostat temperature.
     """
     temp = kwargs.get("temperature")
-    success = await context["ha"].call_service("climate", "set_temperature", kwargs)
+    payload = {
+        "entity_id": kwargs.get("entity_id"),
+        "temperature": kwargs.get("temperature"),
+    }
+    success = await context["ha"].call_service("climate", "set_temperature", payload)
 
     if success:
         return f"Temperatur auf {temp} Grad gesetzt."
