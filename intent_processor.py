@@ -100,7 +100,6 @@ class IntentProcessor:
         cached_tool, cached_args, cache_score = self.semantic_cache.get_cached_tool(
             text, threshold=0.92
         )
-
         if cached_tool:
             logger.info(
                 f"CACHE HIT: '{text}' matched with score {cache_score:.2f}. Bypassing LLM."
@@ -123,6 +122,9 @@ class IntentProcessor:
             self.semantic_router.learn_new_phrase(route, text)
         response_text, actions, executed_tools = await self.run_llm_inference(
             room, text, speaker_id, route
+        )
+        logger.info(
+            f"LLM response: {response_text}, Actions: {actions}, Executed tools: {executed_tools}"
         )
 
         # 3. Cache Learning
