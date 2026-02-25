@@ -99,7 +99,7 @@ class HomeAssistantClient:
         mentioned_other_rooms = [
             a for a in self.areas if a in text_lower and a != room.lower()
         ]
-        is_local_command = len(mentioned_other_rooms) == 0
+        is_local_command = False
 
         domains_str = str(allowed_domains).replace("'", '"')
         is_local_str = str(is_local_command).lower()

@@ -45,6 +45,7 @@ class IntentProcessor:
             logger.info("No clear semantic route matched. Using all available tools.")
 
         device_context = await self.ha_client.get_dynamic_context(text, room, route)
+        logger.info(f"Devices: {device_context}")
         system_prompt = (
             "You are a smart home assistant.\n"
             f"Devices:\n{device_context}\n"
