@@ -118,8 +118,18 @@ class S3SemanticRouter:
     def _load_from_s3(self):
         try:
             response = self.s3_client.get_object(Bucket=self.bucket, Key=self.key)
-            self.route_dict = json.loads(response["Body"].read().decode("utf-8"))
-            logger.info("Successfully loaded routing intelligence from S3.")
+            loaded_data = json.loads(response["Body"].read().decode("utf-8"))
+
+            # GUARDRAIL: Only overwrite if the S3 file actually contains data
+            if loaded_data and any(loaded_data.values()):
+                self.route_dict = loaded_data
+                logger.info("Successfully loaded routing intelligence from S3.")
+            else:
+                logger.warning(
+                    "S3 routes.json is empty! Keeping hardcoded defaults and re-syncing."
+                )
+                self._sync_to_s3()
+
         except botocore.exceptions.ClientError as e:
             if e.response["Error"]["Code"] == "NoSuchKey":
                 logger.warning(
@@ -132,7 +142,6 @@ class S3SemanticRouter:
             logger.error(
                 f"S3 routes.json is corrupted: {e}. Falling back to default routes."
             )
-
         # Batch encode everything efficiently
         all_embeddings = []
 

@@ -143,7 +143,7 @@ class S3SemanticCache:
             cached_data = self.cache_dict[matched_text]
 
             # Defensive guardrail: Double check we aren't returning an exact_only tool
-            if not cached_data.get("exact_only", False):
+            if not cached_data.get("exact_cache_only", False):
                 logger.debug(
                     f"Semantic match found: '{query}' matched '{matched_text}' ({best_score:.2f})"
                 )
