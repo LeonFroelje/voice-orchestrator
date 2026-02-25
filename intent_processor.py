@@ -139,9 +139,16 @@ class IntentProcessor:
                 self.semantic_cache.add_to_cache(text, function_name, function_args)
 
                 logger.info(f"Router learned new phrase {text} for route {route}")
-                self.semantic_router.learn_new_phrase(
-                    self._get_route(function_name), text
-                )
+                route_to_learn = self._get_route(function_name)
+                if route_to_learn:
+                    logger.info(
+                        f"Router learned new phrase {text} for route {route_to_learn}"
+                    )
+                    self.semantic_router.learn_new_phrase(route_to_learn, text)
+                else:
+                    logger.warning(
+                        f"Could not find route mapping for tool {function_name}. Skipping router learning."
+                    )
         return response_text, actions
 
     def _get_route(self, function_name: str):
